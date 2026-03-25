@@ -1,0 +1,7 @@
+data/
+uploads/
+logs/
+node_modules/
+*.tmp
+*.log
+_sessions.json
