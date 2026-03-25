@@ -1,0 +1,12 @@
+{
+  "name": "studiojun",
+  "version": "2.0.0",
+  "description": "STUDIOJUN 3D Animation Production Management",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
