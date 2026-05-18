@@ -1,0 +1,64 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'STUDIOJUN_v5.html'
+      - '.github/workflows/deploy-frontend.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy frontend to D1 via chunk API
+        env:
+          DEPLOY_KEY: "sjdeploy_2026"
+          SITE_URL: "https://studiojun.co.kr"
+        run: |
+          FILE="STUDIOJUN_v5.html"
+          TOTAL=$(wc -c < "$FILE")
+          echo "Deploying $FILE ($TOTAL bytes)"
+
+          INIT=$(curl -s -X POST "${SITE_URL}/admin/chunk" \
+            -H "Content-Type: application/json" \
+            -d '{"mode":"init","data":"","page":"/"}')
+          echo "Init: $INIT"
+
+          CHUNK_SIZE=40000
+          OFFSET=0
+          CHUNK_NUM=0
+          TOTAL_CHARS=$(wc -m < "$FILE")
+          TOTAL_CHUNKS=$(( (TOTAL_CHARS + CHUNK_SIZE - 1) / CHUNK_SIZE ))
+
+          while [ $OFFSET -lt $TOTAL_CHARS ]; do
+            CHUNK_NUM=$((CHUNK_NUM + 1))
+            CHUNK_DATA=$(python3 -c "
+          import json, sys
+          with open('$FILE', 'r', encoding='utf-8') as f:
+              content = f.read()
+          chunk = content[$OFFSET:$OFFSET+$CHUNK_SIZE]
+          print(json.dumps(chunk), end='')
+          ")
+
+            RESULT=$(curl -s -X POST "${SITE_URL}/admin/chunk" \
+              -H "Content-Type: application/json" \
+              -d "{\"mode\":\"append\",\"data\":${CHUNK_DATA},\"page\":\"/\"}")
+
+            echo "Chunk $CHUNK_NUM/$TOTAL_CHUNKS: $RESULT"
+            OFFSET=$((OFFSET + CHUNK_SIZE))
+          done
+
+          VERIFY=$(curl -s -X POST "${SITE_URL}/admin/chunk" \
+            -H "Content-Type: application/json" \
+            -d '{"mode":"length","page":"/"}')
+          echo "Final length: $VERIFY"
+
+          DEPLOYED_LEN=$(echo "$VERIFY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('length',0))")
+          if [ "$DEPLOYED_LEN" -eq "$TOTAL_CHARS" ]; then
+            echo "Frontend deployed: $DEPLOYED_LEN chars"
+          else
+            echo "Length mismatch: deployed=$DEPLOYED_LEN expected=$TOTAL_CHARS"
+          fi

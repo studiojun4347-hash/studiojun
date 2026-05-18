@@ -1,0 +1,54 @@
+name: Deploy Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker.js'
+      - '.github/workflows/deploy-worker.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy worker.js to Cloudflare
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: "11672bfed94bba41cc2b50f8d8b62e10"
+          WORKER_NAME: "studiojun"
+        run: |
+          cat > /tmp/metadata.json << 'METAEOF'
+          {
+            "main_module": "worker.js",
+            "compatibility_date": "2024-01-01",
+            "bindings": [
+              {"type": "d1", "name": "DB", "id": "ad5676f4-c5a6-48c6-8263-f988fbc68330"},
+              {"type": "r2_bucket", "name": "ASSETS", "bucket_name": "studiojun-assets"}
+            ],
+            "keep_bindings": ["secret_text"]
+          }
+          METAEOF
+
+          RESPONSE=$(curl -s -X PUT \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/workers/scripts/${WORKER_NAME}" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -F "metadata=@/tmp/metadata.json;type=application/json" \
+            -F "worker.js=@worker.js;type=application/javascript+module")
+
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          r = json.load(sys.stdin)
+          if r.get('success'):
+              print('Worker deployed successfully')
+          else:
+              print('Deploy failed')
+              print(json.dumps(r.get('errors', []), indent=2))
+              sys.exit(1)
+          "
+
+      - name: Verify deployment
+        run: |
+          sleep 3
+          curl -s "https://studiojun.co.kr/api/version"

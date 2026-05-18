@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "acorn": "^8.16.0",
+    "xlsx": "^0.18.5"
+  },
+  "name": "jun",
+  "version": "1.0.0",
+  "description": "",
+  "main": "convert_es6.js",
+  "scripts": {
+    "test": "_tools/node/node.exe tests/sheets-parsers.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

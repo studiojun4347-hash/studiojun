@@ -1,0 +1,13 @@
+name = "studiojun"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+account_id = "11672bfed94bba41cc2b50f8d8b62e10"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "studiojun"
+database_id = "ad5676f4-c5a6-48c6-8263-f988fbc68330"
+
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "studiojun-assets"

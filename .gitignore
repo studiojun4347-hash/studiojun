@@ -1,0 +1,27 @@
+Feedback/
+*.log
+node_modules/
+.wrangler/
+dist/
+*.env
+.env
+.env.local
+.dev.vars
+*.secret
+_deploy/secrets/
+_deploy/live-worker/
+qa/*/secrets/
+
+# Temp files
+test_write
+test_write.tmp
+upload_test.txt
+temp_upload/
+worker_chunk_*
+worker_clean.js
+worker_deploy.txt
+worker_patch_*.js
+worker_patched.js
+worker_v511.js
+start_deploy_watcher.vbs
+-
