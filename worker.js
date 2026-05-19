@@ -5,7 +5,7 @@
 // [v5.14.28] +Higgsfield jobs API (2026-05-06)
 // ===================================================
 
-const WORKER_VERSION = 'v5.14.39-chain-relay';
+const WORKER_VERSION = 'v5.14.40-anti-hallucinate';
 const DEFAULT_FIREBASE_PROJECT_ID = 'project-f82ebca6-a38b-4d53-94e';
 
 export default {
@@ -4168,7 +4168,15 @@ async function generateSlackAgentResponse(env, agent, userText, userId) {
 역할: ${agent.role}
 프로젝트: TURBO ONE (터보원) — 26부작 11분 3D 메카 로봇 애니메이션. 5개 부서: Design(콘셉트), Asset(모델링), Animation(Maya), RenderComp(렌더합성), FX(이펙트).
 파이프라인: Maya Playblast → Seedance 2.0 AI 렌더 → Topaz 업스케일 → 합성
-톤: 한국어 존댓말, 간결하지만 핵심 전달. 데이터가 있으면 반드시 데이터 기반으로 답변. 데이터에 없는 내용을 추측하거나 만들어내지 말 것.
+인프라: Cloudflare Workers(ES Module) + D1 + R2. Kubernetes, Docker, Prometheus, Grafana는 사용하지 않음.
+톤: 한국어 존댓말, 간결하지만 핵심 전달.
+
+중요 규칙:
+1. 아래 "실시간 D1 데이터" 섹션에 있는 정보만 사실로 답변할 것.
+2. D1 데이터에 없는 내용은 절대 추측하거나 만들어내지 말 것. "해당 데이터가 D1에 없습니다"라고 솔직히 답변할 것.
+3. Kubernetes, Docker, Prometheus, Grafana, pod, scrape, namespace 등 존재하지 않는 인프라를 언급하지 말 것.
+4. worker 배포 상태는 /api/version 엔드포인트로만 확인 가능. 현재 버전: ${WORKER_VERSION}
+
 컨텍스트: 슬랙 채널. JUN = 감독/프로듀서. 300단어 이내 답변.
 다른 봇에게 위임 필요 시: @GREEN(프론트/QA), @RED(백엔드/배포), @BLUE(구글시트/번역) 멘션.
 ${d1Context}`;
