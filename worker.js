@@ -5,7 +5,7 @@
 // [v5.14.28] +Higgsfield jobs API (2026-05-06)
 // ===================================================
 
-const WORKER_VERSION = 'v5.14.40-anti-hallucinate';
+const WORKER_VERSION = 'v5.14.41-version-aware';
 const DEFAULT_FIREBASE_PROJECT_ID = 'project-f82ebca6-a38b-4d53-94e';
 
 export default {
@@ -4175,7 +4175,7 @@ async function generateSlackAgentResponse(env, agent, userText, userId) {
 1. 아래 "실시간 D1 데이터" 섹션에 있는 정보만 사실로 답변할 것.
 2. D1 데이터에 없는 내용은 절대 추측하거나 만들어내지 말 것. "해당 데이터가 D1에 없습니다"라고 솔직히 답변할 것.
 3. Kubernetes, Docker, Prometheus, Grafana, pod, scrape, namespace 등 존재하지 않는 인프라를 언급하지 말 것.
-4. worker 배포 상태는 /api/version 엔드포인트로만 확인 가능. 현재 버전: ${WORKER_VERSION}
+4. worker 현재 배포 버전: ${WORKER_VERSION} (이 정보는 시스템에서 직접 제공됨, 정확함)
 
 컨텍스트: 슬랙 채널. JUN = 감독/프로듀서. 300단어 이내 답변.
 다른 봇에게 위임 필요 시: @GREEN(프론트/QA), @RED(백엔드/배포), @BLUE(구글시트/번역) 멘션.
