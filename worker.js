@@ -5,7 +5,7 @@
 // [v5.14.28] +Higgsfield jobs API (2026-05-06)
 // ===================================================
 
-const WORKER_VERSION = 'v5.14.41-version-aware';
+const WORKER_VERSION = 'v5.14.42-user-ready';
 const DEFAULT_FIREBASE_PROJECT_ID = 'project-f82ebca6-a38b-4d53-94e';
 
 export default {
@@ -1176,14 +1176,72 @@ ${type === 'weekly' ? '주간 리포트: 이번 주 성과, 다음 주 계획, �
 async function sendScheduledBriefing(env, type) {
   const projectId = 'default';
   console.log(`[CRON] Generating ${type} briefing...`);
-  const ctx = await getProjectContext(env, projectId);
-  // DB에 스케줄 브리핑 로그 저장
-  const { stats } = ctx;
-  const progress = stats.total > 0 ? Math.round(stats.done / stats.total * 100) : 0;
-  await env.DB.prepare(
-    'INSERT INTO ai_conversations (project_id, user_id, role, content, model) VALUES (?, ?, ?, ?, ?)'
-  ).bind(projectId, 'cron', 'system', `[${type}] Scheduled briefing triggered. Progress: ${progress}%`, 'cron').run();
-  console.log(`[CRON] ${type} briefing logged. Progress: ${progress}%`);
+
+  // D1에서 실데이터 집계
+  let report = '';
+  try {
+    const stats = await env.DB.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM episodes WHERE archived=0) as ep_count,
+        (SELECT COUNT(*) FROM shots WHERE archived=0) as shot_total,
+        (SELECT COUNT(*) FROM shots WHERE archived=0 AND status='done') as shot_done,
+        (SELECT COUNT(*) FROM shots WHERE archived=0 AND status='in_progress') as shot_wip,
+        (SELECT COUNT(*) FROM shots WHERE archived=0 AND status='pending') as shot_pending,
+        (SELECT COUNT(*) FROM assets WHERE archived=0) as asset_total,
+        (SELECT COUNT(*) FROM members WHERE archived=0 AND is_active=1) as member_count
+    `).first();
+
+    const pct = stats.shot_total > 0 ? Math.round(stats.shot_done / stats.shot_total * 100) : 0;
+
+    // 최근 24시간 활동
+    const oneDayAgo = Date.now() - 86400000;
+    const recentShots = await env.DB.prepare(
+      `SELECT COUNT(*) as cnt FROM shots WHERE archived=0 AND updated_at > ?`
+    ).bind(oneDayAgo).first();
+
+    const recentTodos = await env.DB.prepare(
+      `SELECT COUNT(*) as cnt FROM todos WHERE updated_at > ?`
+    ).bind(oneDayAgo).first();
+
+    if (type === 'morning') {
+      report = `☀️ *모닝 브리핑* | ${new Date().toISOString().slice(0,10)}\n\n` +
+        `📊 *프로젝트 현황*\n` +
+        `• 에피소드: ${stats.ep_count}개 | 샷: ${stats.shot_total}개 (완료 ${pct}%)\n` +
+        `• 진행중 ${stats.shot_wip} | 대기 ${stats.shot_pending} | 에셋 ${stats.asset_total}개\n` +
+        `• 활성 멤버: ${stats.member_count}명\n\n` +
+        `📈 *최근 24시간*\n` +
+        `• 샷 업데이트: ${recentShots?.cnt || 0}건 | 할일 업데이트: ${recentTodos?.cnt || 0}건`;
+    } else if (type === 'afternoon') {
+      report = `🌅 *오후 현황* | 샷 진행률 ${pct}% (${stats.shot_done}/${stats.shot_total})\n` +
+        `진행중 ${stats.shot_wip} | 대기 ${stats.shot_pending} | 오늘 업데이트 ${recentShots?.cnt || 0}건`;
+    } else {
+      // weekly
+      report = `📋 *주간 리포트* | ${new Date().toISOString().slice(0,10)}\n\n` +
+        `• 전체 샷: ${stats.shot_total}개 (완료 ${pct}%)\n` +
+        `• 에셋: ${stats.asset_total}개 | 멤버: ${stats.member_count}명\n` +
+        `• 금주 샷 업데이트: ${recentShots?.cnt || 0}건 | 할일: ${recentTodos?.cnt || 0}건`;
+    }
+  } catch (e) {
+    report = `⚠️ [${type}] 브리핑 데이터 조회 실패: ${e.message}`;
+    console.error('[CRON] Stats err:', e.message);
+  }
+
+  // Slack 커맨드센터에 GREEN 봇으로 포스팅
+  try {
+    const token = await getSlackConfigValue(env, 'SLACK_BOT_TOKEN_GREEN');
+    if (token) {
+      await postSlackBotMessage(token, { channel: JUN_COMMAND_CENTER_ID, text: report, unfurl_links: false });
+    }
+  } catch (e) { console.error('[CRON] Slack post err:', e.message); }
+
+  // DB 로깅
+  try {
+    await env.DB.prepare(
+      'INSERT INTO ai_conversations (project_id, user_id, role, content, model) VALUES (?, ?, ?, ?, ?)'
+    ).bind(projectId, 'cron', 'system', report.slice(0, 500), 'cron').run();
+  } catch (e) { console.error('[CRON] Log err:', e.message); }
+
+  console.log(`[CRON] ${type} briefing sent to Slack.`);
 }
 
 // POST /ai/query — 자연어 데이터 쿼리
@@ -4110,6 +4168,23 @@ async function processCommandCenterMessage(env, event, eventId) {
   const text = event.text || '';
   const userId = event.user;
   const threadTs = event.thread_ts || event.ts;
+
+  // 도움말 커맨드
+  const lower = text.toLowerCase().trim();
+  if (lower === '도움말' || lower === 'help' || lower === '?') {
+    const greenToken = await getSlackConfigValue(env, 'SLACK_BOT_TOKEN_GREEN');
+    if (greenToken) {
+      const helpText = `🤖 *STUDIOJUN AI 봇 가이드*\n\n` +
+        `🟢 *GREEN* (프론트/QA/프로덕션)\n• 샷 진행률, 에피소드 현황, 리뷰 상태 질문\n• 예: "EP01 진행률 알려줘", "현재 프로젝트 현황"\n\n` +
+        `🔴 *RED* (백엔드/배포/코드)\n• Worker 배포, 코드 이슈, 시스템 상태\n• 예: "@codex 배포 상태", "worker 버전 확인"\n\n` +
+        `🔵 *BLUE* (구글시트/번역/동기화)\n• 시트 데이터, 번역, 동기화 상태\n• 예: "@gemini 시트 동기화 확인", "에피소드 목록"\n\n` +
+        `⚡ *자동 기능*\n• 샷/할일 상태 변경 → 자동 알림\n• ✅ 리액션 → 리뷰 승인 | 🔄 → 리테이크\n• 매일 오전/오후 자동 브리핑\n\n` +
+        `💡 아무 질문이나 자유롭게 해보세요!`;
+      await postSlackBotMessage(greenToken, { channel: JUN_COMMAND_CENTER_ID, thread_ts: threadTs, text: helpText, unfurl_links: false });
+    }
+    return;
+  }
+
   const agentKey = routeToAgent(text);
   const agent = SLACK_AGENTS[agentKey];
   const token = await getSlackConfigValue(env, agent.tokenKey);
