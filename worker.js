@@ -5,7 +5,7 @@
 // [v5.14.28] +Higgsfield jobs API (2026-05-06)
 // ===================================================
 
-const WORKER_VERSION = 'v5.14.37-slack-waituntil';
+const WORKER_VERSION = 'v5.14.38-d1-context';
 const DEFAULT_FIREBASE_PROJECT_ID = 'project-f82ebca6-a38b-4d53-94e';
 
 export default {
@@ -4130,11 +4130,18 @@ async function generateSlackAgentResponse(env, agent, userText, userId) {
   const apiKey = await getSlackConfigValue(env, llm.apiKeyEnv);
   if (!apiKey) return `[${agent.name}] ${llm.apiKeyEnv} 미설정`;
 
+  // D1 실데이터 조회
+  let d1Context = '';
+  try { d1Context = await getD1Context(env, userText); } catch (e) { console.error('[SLACK] D1 context err:', e.message); }
+
   const systemPrompt = `You are ${agent.name} (${agent.emoji}), STUDIOJUN 프로덕션 팀 전담 AI 에이전트.
 역할: ${agent.role}
-프로젝트: TURBO ONE (터보원) — 26부작 11분 3D 메카 로봇 애니메이션
-톤: 추론형 대화, 한국어 존댓말, 간결하지만 핵심 전달, 봇 자칭 금지.
-컨텍스트: #jun-command-center 슬랙 채널. JUN = 감독/프로듀서. 300단어 이내 답변.`;
+프로젝트: TURBO ONE (터보원) — 26부작 11분 3D 메카 로봇 애니메이션. 5개 부서: Design(콘셉트), Asset(모델링), Animation(Maya), RenderComp(렌더합성), FX(이펙트).
+파이프라인: Maya Playblast → Seedance 2.0 AI 렌더 → Topaz 업스케일 → 합성
+톤: 한국어 존댓말, 간결하지만 핵심 전달. 데이터가 있으면 반드시 데이터 기반으로 답변. 데이터에 없는 내용을 추측하거나 만들어내지 말 것.
+컨텍스트: 슬랙 채널. JUN = 감독/프로듀서. 300단어 이내 답변.
+다른 봇에게 위임 필요 시: @GREEN(프론트/QA), @RED(백엔드/배포), @BLUE(구글시트/번역) 멘션.
+${d1Context}`;
 
   // Provider별 API 호출
   if (llm.provider === 'anthropic') {
@@ -4145,6 +4152,100 @@ async function generateSlackAgentResponse(env, agent, userText, userId) {
     return await callGeminiAPI(apiKey, llm.model, systemPrompt, userText, llm.maxTokens, agent.name);
   }
   return `[${agent.name}] 알 수 없는 provider: ${llm.provider}`;
+}
+
+// D1 실데이터 컨텍스트 조회
+async function getD1Context(env, userText) {
+  const lower = (userText || '').toLowerCase();
+  const parts = [];
+
+  // 항상: 프로젝트 요약 통계
+  try {
+    const stats = await env.DB.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM episodes WHERE archived=0) as ep_count,
+        (SELECT COUNT(*) FROM shots WHERE archived=0) as shot_total,
+        (SELECT COUNT(*) FROM shots WHERE archived=0 AND status='done') as shot_done,
+        (SELECT COUNT(*) FROM shots WHERE archived=0 AND status='in_progress') as shot_wip,
+        (SELECT COUNT(*) FROM shots WHERE archived=0 AND status='pending') as shot_pending,
+        (SELECT COUNT(*) FROM assets WHERE archived=0) as asset_total,
+        (SELECT COUNT(*) FROM members WHERE archived=0 AND is_active=1) as member_count
+    `).first();
+    if (stats) {
+      const pct = stats.shot_total > 0 ? Math.round(stats.shot_done / stats.shot_total * 100) : 0;
+      parts.push(`[프로젝트 현황] 에피소드:${stats.ep_count}개, 샷:${stats.shot_total}개(완료${stats.shot_done}/진행${stats.shot_wip}/대기${stats.shot_pending}, ${pct}%), 에셋:${stats.asset_total}개, 활성멤버:${stats.member_count}명`);
+    }
+  } catch (e) { /* skip */ }
+
+  // 에피소드 관련 키워드
+  if (lower.match(/에피소드|ep\d|episode|시즌/)) {
+    try {
+      const eps = await env.DB.prepare("SELECT code, title, status FROM episodes WHERE archived=0 ORDER BY order_index LIMIT 26").all();
+      if (eps.results?.length) {
+        const epList = eps.results.map(e => `${e.code}(${e.status})`).join(', ');
+        parts.push(`[에피소드 목록] ${epList}`);
+      }
+    } catch (e) { /* skip */ }
+  }
+
+  // 특정 에피소드 샷 상태
+  const epMatch = lower.match(/ep\s?(\d+)/);
+  if (epMatch) {
+    try {
+      const epCode = `EP${epMatch[1].padStart(2, '0')}`;
+      const epRow = await env.DB.prepare("SELECT id FROM episodes WHERE code = ? AND archived=0").bind(epCode).first();
+      if (epRow) {
+        const shotStats = await env.DB.prepare(`
+          SELECT team, status, COUNT(*) as cnt FROM shots WHERE episode_id = ? AND archived=0 GROUP BY team, status ORDER BY team, status
+        `).bind(epRow.id).all();
+        if (shotStats.results?.length) {
+          parts.push(`[${epCode} 샷 상태] ${shotStats.results.map(r => `${r.team}/${r.status}:${r.cnt}`).join(', ')}`);
+        }
+      }
+    } catch (e) { /* skip */ }
+  }
+
+  // 팀/부서 관련
+  if (lower.match(/팀|부서|인원|멤버|담당/)) {
+    try {
+      const members = await env.DB.prepare("SELECT name, team, role, department, region FROM members WHERE archived=0 AND is_active=1 LIMIT 30").all();
+      if (members.results?.length) {
+        parts.push(`[팀원] ${members.results.map(m => `${m.name}(${m.team||''}/${m.department||''}/${m.region||'HQ'})`).join(', ')}`);
+      }
+    } catch (e) { /* skip */ }
+  }
+
+  // 에셋 관련
+  if (lower.match(/에셋|asset|모델|캐릭터|배경|프롭/)) {
+    try {
+      const assetStats = await env.DB.prepare("SELECT type, status, COUNT(*) as cnt FROM assets WHERE archived=0 GROUP BY type, status ORDER BY cnt DESC LIMIT 20").all();
+      if (assetStats.results?.length) {
+        parts.push(`[에셋 현황] ${assetStats.results.map(a => `${a.type}/${a.status}:${a.cnt}`).join(', ')}`);
+      }
+    } catch (e) { /* skip */ }
+  }
+
+  // 리뷰 관련
+  if (lower.match(/리뷰|review|검수|확인|피드백/)) {
+    try {
+      const reviews = await env.DB.prepare("SELECT id, status, team, created_at FROM video_reviews ORDER BY created_at DESC LIMIT 5").all();
+      if (reviews.results?.length) {
+        parts.push(`[최근 리뷰] ${reviews.results.map(r => `${r.id}(${r.status}/${r.team})`).join(', ')}`);
+      }
+    } catch (e) { /* skip */ }
+  }
+
+  // 구글시트 캐시
+  if (lower.match(/시트|sheet|스케줄|일정|진행/)) {
+    try {
+      const sheets = await env.DB.prepare("SELECT sheet_name, COUNT(*) as cnt, MAX(synced_at) as last_sync FROM sheets_cache GROUP BY sheet_name").all();
+      if (sheets.results?.length) {
+        parts.push(`[구글시트 캐시] ${sheets.results.map(s => `${s.sheet_name}:${s.cnt}행(${s.last_sync ? new Date(s.last_sync).toLocaleDateString('ko') : '미동기화'})`).join(', ')}`);
+      }
+    } catch (e) { /* skip */ }
+  }
+
+  return parts.length ? '\n\n--- 실시간 D1 데이터 ---\n' + parts.join('\n') : '';
 }
 
 // ===== 3대장 LLM API 호출 =====
