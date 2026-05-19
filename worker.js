@@ -5,7 +5,7 @@
 // [v5.14.28] +Higgsfield jobs API (2026-05-06)
 // ===================================================
 
-const WORKER_VERSION = 'v5.14.38-d1-context';
+const WORKER_VERSION = 'v5.14.39-chain-relay';
 const DEFAULT_FIREBASE_PROJECT_ID = 'project-f82ebca6-a38b-4d53-94e';
 
 export default {
@@ -3019,6 +3019,8 @@ async function updateShot(id, req, env) {
       title: `샷 상태 변경: ${id}`,
       body: `${id} → ${data.status}${data.team ? ` (${data.team})` : ''}${data.assignee ? ` 담당: ${data.assignee}` : ''}`,
     }).catch(() => {});
+    // 커맨드센터 봇 알림
+    notifyCommandCenter(env, `🎬 *샷 상태 변경* | \`${id}\` → *${data.status}*${data.team ? ` | ${data.team}` : ''}${data.assignee ? ` | 담당: ${data.assignee}` : ''}`).catch(() => {});
   }
 
   // Pipeline cascade: when shot status → 'done', auto-create next department's work
@@ -3258,14 +3260,16 @@ async function updateTodo(id, req, env) {
   fields.push('updated_at = ?'); vals.push(Date.now()); vals.push(id);
   await env.DB.prepare(`UPDATE todos SET ${fields.join(', ')} WHERE id = ?`).bind(...vals).run();
 
-  // Slack 자동 알림: 할일 완료
-  if (data.status === 'done') {
+  // Slack 자동 알림: 할일 상태 변경
+  if (data.status) {
     sendSlackEvent(env, {
       project_id: data.project_id || 'default',
       event_type: 'production_update',
-      title: `할일 완료: ${id}`,
-      body: `${data.title || id} 완료${data.team ? ` (${data.team})` : ''}`,
+      title: `할일 ${data.status === 'done' ? '완료' : '변경'}: ${id}`,
+      body: `${data.title || id} → ${data.status}${data.team ? ` (${data.team})` : ''}`,
     }).catch(() => {});
+    const emoji = data.status === 'done' ? '✅' : data.status === 'in_progress' ? '🔄' : '📋';
+    notifyCommandCenter(env, `${emoji} *할일 ${data.status === 'done' ? '완료' : '상태변경'}* | \`${data.title || id}\` → *${data.status}*${data.team ? ` | ${data.team}` : ''}`).catch(() => {});
   }
 
   return json({ id, ...data });
@@ -3880,6 +3884,15 @@ async function postSlackWebhook(env, payload, channel) {
   return { ok: response.ok, status: response.status, response_text: responseText };
 }
 
+// 커맨드센터에 봇으로 CRUD 알림 전송
+async function notifyCommandCenter(env, text) {
+  try {
+    const token = await getSlackConfigValue(env, 'SLACK_BOT_TOKEN_GREEN');
+    if (!token) return;
+    await postSlackBotMessage(token, { channel: JUN_COMMAND_CENTER_ID, text, unfurl_links: false });
+  } catch (e) { console.error('[SLACK] notifyCC err:', e.message); }
+}
+
 async function sendSlackEvent(env, message) {
   await ensureSlackTables(env);
   const channel = getSlackRoute(message.event_type || 'production_update', message.channel);
@@ -4123,6 +4136,23 @@ async function processCommandCenterMessage(env, event, eventId) {
       .bind('COMMAND_CENTER', 'agent_response', `${agent.emoji} ${agent.name} responded`, sanitizeSlackText(responseText).slice(0, 500), 'jun_command_center', 'sent', `agent:${agentKey}`)
       .run();
   } catch (e) { console.error('[SLACK-WEBHOOK] Response log err:', e.message); }
+
+  // Chain relay: 봇 응답에서 @멘션 감지 → 해당 봇 자동 호출
+  const mentionMap = { '@green': 'GREEN', '@red': 'RED', '@blue': 'BLUE' };
+  const lowerResp = (responseText || '').toLowerCase();
+  for (const [mention, targetKey] of Object.entries(mentionMap)) {
+    if (lowerResp.includes(mention) && targetKey !== agentKey) {
+      try {
+        const targetAgent = SLACK_AGENTS[targetKey];
+        const targetToken = await getSlackConfigValue(env, targetAgent.tokenKey);
+        if (!targetToken) continue;
+        const chainPrompt = `[${agent.name}이(가) 위임] 원본 질문: ${text}\n${agent.name} 답변 요약: ${responseText.slice(0, 300)}`;
+        const chainResp = await generateSlackAgentResponse(env, targetAgent, chainPrompt, userId);
+        await postSlackBotMessage(targetToken, { channel: JUN_COMMAND_CENTER_ID, thread_ts: threadTs, text: chainResp, unfurl_links: false });
+        await logSlackEvent(env, 'chain_relay', `${agent.name}→${targetAgent.name} 위임`, `trigger:${mention} thread:${threadTs}`);
+      } catch (e) { console.error(`[SLACK] Chain relay ${targetKey} err:`, e.message); }
+    }
+  }
 }
 
 async function generateSlackAgentResponse(env, agent, userText, userId) {
@@ -4331,7 +4361,31 @@ async function processReactionEvent(env, event, eventId) {
   if (reaction !== 'white_check_mark' && reaction !== 'arrows_counterclockwise') return;
 
   const status = reaction === 'white_check_mark' ? 'confirmed' : 'retake';
-  await logSlackEvent(env, 'reaction_review', `리액션 리뷰 ${status}: ${event.item?.ts || ''}`, `user:${event.user} reaction:${reaction} channel:${event.item?.channel || ''}`);
+  const msgTs = event.item?.ts || '';
+  const channelId = event.item?.channel || '';
+
+  // D1에서 해당 메시지와 연결된 리뷰 찾아서 상태 업데이트
+  try {
+    const review = await env.DB.prepare(
+      `SELECT id FROM video_reviews WHERE slack_thread_ts = ? OR slack_message_ts = ? LIMIT 1`
+    ).bind(msgTs, msgTs).first();
+    if (review) {
+      await env.DB.prepare(`UPDATE video_reviews SET status = ?, updated_at = datetime('now') WHERE id = ?`)
+        .bind(status, review.id).run();
+      // 승인/리테이크 알림을 스레드에 포스팅
+      const greenToken = await getSlackConfigValue(env, 'SLACK_BOT_TOKEN_GREEN');
+      if (greenToken && channelId) {
+        const emoji = status === 'confirmed' ? '✅' : '🔄';
+        await postSlackBotMessage(greenToken, {
+          channel: channelId, thread_ts: msgTs,
+          text: `${emoji} 리뷰 ${status === 'confirmed' ? '승인' : '리테이크'} 처리되었습니다. (review #${review.id})`,
+          unfurl_links: false
+        });
+      }
+    }
+  } catch (e) { console.error('[SLACK] Reaction D1 update err:', e.message); }
+
+  await logSlackEvent(env, 'reaction_review', `리액션 리뷰 ${status}: ${msgTs}`, `user:${event.user} reaction:${reaction} channel:${channelId}`);
 }
 
 async function logSlackEvent(env, eventType, title, body) {
