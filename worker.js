@@ -5,7 +5,7 @@
 // [v5.14.28] +Higgsfield jobs API (2026-05-06)
 // ===================================================
 
-const WORKER_VERSION = 'v5.14.43-brainstorm';
+const WORKER_VERSION = 'v5.14.44-parallel-brainstorm';
 const DEFAULT_FIREBASE_PROJECT_ID = 'project-f82ebca6-a38b-4d53-94e';
 
 export default {
@@ -4239,11 +4239,10 @@ async function processCommandCenterMessage(env, event, eventId) {
 }
 
 async function brainstormSession(env, topic, userId, threadTs, eventId) {
-  const order = ['GREEN', 'RED', 'BLUE'];
   const perspectives = {
-    GREEN: `UX/프론트엔드/QA 관점에서 이 주제를 분석해주세요. 사용자 경험, UI 구조, 페이지 흐름, QA 체크포인트를 제안해주세요.`,
-    RED: `백엔드/API/인프라 관점에서 이 주제를 분석해주세요. 필요한 API 엔드포인트, DB 스키마, Worker 라우트, 기술 구현 방안을 제안해주세요.`,
-    BLUE: `데이터/구글시트/워크플로우 관점에서 이 주제를 분석해주세요. 데이터 구조, 시트 연동, 자동화 파이프라인, 외부 서비스 연동을 제안해주세요.`
+    GREEN: `UX/프론트엔드/QA 관점에서 분석. 사용자 경험, UI 구조, 페이지 흐름, QA 체크포인트 제안. 150단어 이내.`,
+    RED: `백엔드/API/인프라 관점에서 분석. API 엔드포인트, DB 스키마, Worker 라우트, 기술 구현 방안 제안. 150단어 이내.`,
+    BLUE: `데이터/구글시트/워크플로우 관점에서 분석. 데이터 구조, 시트 연동, 자동화 파이프라인 제안. 150단어 이내.`
   };
 
   // 시작 알림
@@ -4251,41 +4250,39 @@ async function brainstormSession(env, topic, userId, threadTs, eventId) {
   if (greenToken) {
     await postSlackBotMessage(greenToken, {
       channel: JUN_COMMAND_CENTER_ID, thread_ts: threadTs,
-      text: `🧠 *브레인스토밍 시작* | 주제: *${topic}*\n\n3봇이 각자 관점에서 의견을 제시합니다. 잠시만 기다려주세요...`,
+      text: `🧠 *브레인스토밍 시작* | 주제: *${topic}*\n3봇이 동시에 분석 중...`,
       unfurl_links: false
     });
   }
 
-  let prevResponses = '';
-
-  for (const agentKey of order) {
+  // Phase 1: 3봇 병렬 호출 (타임아웃 방지)
+  const results = {};
+  const promises = Object.entries(perspectives).map(async ([agentKey, perspective]) => {
     const agent = SLACK_AGENTS[agentKey];
     const token = await getSlackConfigValue(env, agent.tokenKey);
-    if (!token) continue;
+    if (!token) { results[agentKey] = `[${agent.name}] 토큰 미설정`; return; }
 
-    const prompt = `[브레인스토밍 세션] 주제: ${topic}\n\n` +
-      `당신의 역할: ${perspectives[agentKey]}\n` +
-      (prevResponses ? `\n이전 봇들의 의견:\n${prevResponses}\n\n이전 의견을 참고하되, 당신의 전문 영역에서 새로운 관점과 구체적인 제안을 추가해주세요. 중복 없이 보완하세요.` : '') +
-      `\n\n200단어 이내로 핵심만 간결하게.`;
-
+    const prompt = `[브레인스토밍] 주제: ${topic}\n\n${perspective}`;
     let response;
     try {
       response = await generateSlackAgentResponse(env, agent, prompt, userId);
     } catch (e) {
       response = `[${agent.name}] 응답 오류: ${e.message}`;
     }
+    results[agentKey] = response;
 
     await postSlackBotMessage(token, {
       channel: JUN_COMMAND_CENTER_ID, thread_ts: threadTs,
       text: response, unfurl_links: false
     });
+  });
 
-    prevResponses += `\n[${agent.name}]: ${response.slice(0, 400)}\n`;
-  }
+  await Promise.all(promises);
 
-  // 종합 정리 (GREEN이 마무리)
+  // Phase 2: GREEN이 종합 정리
   if (greenToken) {
-    const summaryPrompt = `[브레인스토밍 종합] 주제: ${topic}\n\n3봇의 의견을 종합해서 실행 가능한 액션 플랜을 만들어주세요.\n\n${prevResponses}\n\n위 3가지 관점을 종합하여:\n1. 우선순위가 높은 작업 3개\n2. 즉시 시작 가능한 것\n3. 예상 일정\n을 150단어 이내로 정리해주세요.`;
+    const allResponses = Object.entries(results).map(([k, v]) => `[${k}]: ${v.slice(0, 300)}`).join('\n');
+    const summaryPrompt = `[브레인스토밍 종합] 주제: ${topic}\n\n3봇 의견:\n${allResponses}\n\n종합하여 액션 플랜 작성:\n1. 우선순위 높은 작업 3개\n2. 즉시 시작 가능한 것\n3. 예상 일정\n100단어 이내.`;
 
     let summary;
     try {
