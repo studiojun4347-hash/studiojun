@@ -5,7 +5,7 @@
 // [v5.14.28] +Higgsfield jobs API (2026-05-06)
 // ===================================================
 
-const WORKER_VERSION = 'v5.14.36-workflow-engine';
+const WORKER_VERSION = 'v5.14.37-slack-waituntil';
 const DEFAULT_FIREBASE_PROJECT_ID = 'project-f82ebca6-a38b-4d53-94e';
 
 export default {
@@ -29,7 +29,7 @@ export default {
     }
   },
 
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -485,7 +485,7 @@ export default {
 
       // Slack Events API webhook (no JWT — verified by Slack signing secret)
       if (path === '/api/slack/webhook' && request.method === 'POST') {
-        const res = await handleSlackWebhook(request, env);
+        const res = await handleSlackWebhook(request, env, ctx);
         return addCors(res);
       }
       // Slack notification bridge
@@ -4038,7 +4038,7 @@ async function verifySlackSignature(request, env) {
   return { valid: match, reason: match ? 'ok' : 'Signature mismatch', body };
 }
 
-async function handleSlackWebhook(request, env) {
+async function handleSlackWebhook(request, env, ctx) {
   const verification = await verifySlackSignature(request, env);
   let payload;
   try { payload = JSON.parse(verification.body); } catch { return json({ error: 'Invalid JSON' }, 400); }
@@ -4061,34 +4061,33 @@ async function handleSlackWebhook(request, env) {
     if (event?.type === 'message' && event.channel === JUN_COMMAND_CENTER_ID) {
       if (event.bot_id || event.subtype === 'bot_message') return json({ ok: true, skipped: 'bot_message' });
       if (event.subtype && event.subtype !== 'file_share') return json({ ok: true, skipped: event.subtype });
-      processCommandCenterMessage(env, event, payload.event_id).catch(e => console.error('[SLACK-WEBHOOK] Process error:', e.message));
+      ctx.waitUntil(processCommandCenterMessage(env, event, payload.event_id).catch(e => console.error('[SLACK-WEBHOOK] Process error:', e.message)));
       return json({ ok: true, event_id: payload.event_id });
     }
 
     // 2. 다른 채널 메시지 → D1 로깅 + 봇 멘션 응답
     if (event?.type === 'message') {
       if (event.bot_id || event.subtype === 'bot_message') return json({ ok: true, skipped: 'bot_message' });
-      // 봇 멘션(@dispatch, @codex 등)이 포함된 메시지만 응답
       if (event.text && /@(dispatch|codex|gemini|green|red|blue)/i.test(event.text)) {
-        processChannelMention(env, event, payload.event_id).catch(e => console.error('[SLACK-WEBHOOK] Mention error:', e.message));
+        ctx.waitUntil(processChannelMention(env, event, payload.event_id).catch(e => console.error('[SLACK-WEBHOOK] Mention error:', e.message)));
       }
       return json({ ok: true, event_id: payload.event_id, channel: event.channel });
     }
 
     // 3. reaction_added → 리뷰 승인/리젝 자동 처리
     if (event?.type === 'reaction_added') {
-      processReactionEvent(env, event, payload.event_id).catch(e => console.error('[SLACK-WEBHOOK] Reaction error:', e.message));
+      ctx.waitUntil(processReactionEvent(env, event, payload.event_id).catch(e => console.error('[SLACK-WEBHOOK] Reaction error:', e.message)));
       return json({ ok: true, event_id: payload.event_id });
     }
 
     // 4. file_shared → 에셋 업로드 알림
     if (event?.type === 'file_shared') {
-      logSlackEvent(env, 'file_shared', `파일 공유: ${event.file_id || 'unknown'}`, event.channel_id || '').catch(() => {});
+      ctx.waitUntil(logSlackEvent(env, 'file_shared', `파일 공유: ${event.file_id || 'unknown'}`, event.channel_id || ''));
       return json({ ok: true, event_id: payload.event_id });
     }
 
     // 5. 기타 이벤트 로깅
-    logSlackEvent(env, event?.type || 'unknown', `Event: ${event?.type}`, JSON.stringify(event || {}).slice(0, 500)).catch(() => {});
+    ctx.waitUntil(logSlackEvent(env, event?.type || 'unknown', `Event: ${event?.type}`, JSON.stringify(event || {}).slice(0, 500)));
     return json({ ok: true, event_type: event?.type });
   }
   return json({ ok: true });
