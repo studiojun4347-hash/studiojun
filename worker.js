@@ -653,12 +653,12 @@ export default {
         '/animation': '/animation', '/render': '/render', '/fx': '/fx',
         '/signup': '/signup', '/login': '/login',
         '/reviews': '/reviews', '/schedule': '/schedule',
-        '/seedance': '/seedance', '/seedance-auto': '/seedance-auto'
       };
       // [v5.14.25] ?덇굅???섏씠吏 ??production UI 由щ떎?대젆??
       const LEGACY_REDIRECTS = {
         '/legacy': '/production', '/imagegen': '/production',
         '/higgsfield': '/production/higgsfield',
+        '/seedance': '/production/higgsfield', '/seedance-auto': '/production/higgsfield',
         '/board': '/production/tasks', '/tbo': '/production',
         '/shotgrid': '/production/shots', '/shotgrid-claude': '/production/shots', '/shots': '/production/shots'
       };
@@ -6767,7 +6767,33 @@ async function handleSeedanceAPI(path, request, env) {
     return { user };
   }
 
-  // GET /api/seedance/projects - active project picker for Seedance pipeline UI.
+  // GET/POST /api/seedance/projects - project picker/create for Seedance pipeline UI.
+  if (path === '/api/seedance/projects' && method === 'POST') {
+    const auth = await requireSeedanceAdmin();
+    if (auth.error) return auth.error;
+    const body = await request.json().catch(() => ({}));
+    const name = normalizePipelineAssetName(body.name, 'New Seedance Project');
+    const code = String(body.code || name).trim().replace(/[^A-Za-z0-9_.-]+/g, '_').slice(0, 32).toUpperCase() || 'SEEDANCE';
+    const id = normalizePipelineProjectId(body.id || code.toLowerCase());
+    const now = Math.floor(Date.now() / 1000);
+    const existing = await db.prepare('SELECT id FROM projects WHERE id=?').bind(id).first();
+    if (existing) return json({ error: 'Project already exists', id }, 409);
+    await db.prepare(`
+      INSERT INTO projects (id, name, client, status, project_type, description, thumbnail_url, created_by, created_at, updated_at)
+      VALUES (?, ?, ?, 'active', 'seedance_pipeline', ?, ?, ?, ?, ?)
+    `).bind(
+      id,
+      name,
+      String(body.client || 'STUDIOJUN').slice(0, 120),
+      String(body.description || 'Seedance 2.0 pipeline project').slice(0, 1000),
+      String(body.thumbnail_url || '').slice(0, 500),
+      auth.user.email || auth.user.name || auth.user.id || 'seedance-admin',
+      now,
+      now
+    ).run();
+    return json({ success: true, project: { id, name, code, thumbnail_url: body.thumbnail_url || '' } }, 201);
+  }
+
   if (path === '/api/seedance/projects' && method === 'GET') {
     const auth = await requireSeedanceAdmin();
     if (auth.error) return auth.error;
