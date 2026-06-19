@@ -1,11 +1,11 @@
-// ===================================================
+﻿// ===================================================
 // STUDIOJUN v5.0 Production Management - Cloudflare Worker API
 // [v5.14.36] +Workflow Engine API (2026-05-18)
 // [v5.14.35] +Slack Events API webhook (2026-05-17)
 // [v5.14.28] +Higgsfield jobs API (2026-05-06)
 // ===================================================
 
-const WORKER_VERSION = 'v5.14.44-parallel-brainstorm';
+const WORKER_VERSION = 'v5.14.45-slack-heygen';
 const DEFAULT_FIREBASE_PROJECT_ID = 'project-f82ebca6-a38b-4d53-94e';
 
 export default {
@@ -41,7 +41,7 @@ export default {
       const adminGate = await requireAdminForPath(path, request, env);
       if (adminGate) return addCors(adminGate, request, env);
 
-      // Admin: R2에서 프론트엔드 배포 (자동화용)
+      // Admin: R2?먯꽌 ?꾨줎?몄뿏??諛고룷 (?먮룞?붿슜)
       if (path === '/admin/deploy-from-r2' && request.method === 'POST') {
         const { r2Key } = await request.json();
         const obj = await env.ASSETS.get(r2Key || 'deploy/frontend.html');
@@ -53,7 +53,7 @@ export default {
         return addCors(json({ success: true, length: html.length, source: r2Key || 'deploy/frontend.html' }));
       }
 
-      // Admin: URL에서 프론트엔드 배포 (자동화용)
+      // Admin: URL?먯꽌 ?꾨줎?몄뿏??諛고룷 (?먮룞?붿슜)
       if (path === '/admin/deploy-from-url' && request.method === 'POST') {
         const { url } = await request.json();
         if (!url) return addCors(json({ error: 'url required' }, 400));
@@ -67,7 +67,7 @@ export default {
         return addCors(json({ success: true, length: html.length, source: url }));
       }
 
-      // Admin: HTML 업로드 (key 지정 가능)
+      // Admin: HTML ?낅줈??(key 吏??媛??
       if (path === '/admin/upload-html' && request.method === 'POST') {
         const { key, content } = await request.json();
         const pageKey = key || '/';
@@ -77,7 +77,7 @@ export default {
         return addCors(json({ success: true, key: pageKey, length: content.length }));
       }
 
-      // Admin: 청크 업로드
+      // Admin: chunk upload
       if (path === '/admin/chunk' && request.method === 'POST') {
         const { mode, data, page: pageParam } = await request.json(); const key = pageParam || '/';
         if (mode === 'init') {
@@ -99,7 +99,7 @@ export default {
         return addCors(json({ error: 'invalid mode' }, 400));
       }
 
-      // Admin: R2 모듈 업로드 (SPA 모듈 배포용)
+      // Admin: R2 紐⑤뱢 ?낅줈??(SPA 紐⑤뱢 諛고룷??
       if (path === '/admin/upload-r2' && request.method === 'POST') {
         const formData = await request.formData();
         const file = formData.get('file');
@@ -134,7 +134,7 @@ export default {
         }
       }
 
-      // Admin: D1 staging → static_pages 프론트엔드 배포
+      // Admin: D1 staging ??static_pages ?꾨줎?몄뿏??諛고룷
       // POST /admin/deploy-frontend?key=sjdeploy_2026&page=/
       if ((path === '/admin/deploy-frontend' || path === '/api/admin/deploy-frontend') && request.method === 'POST') {
         const auth = await requireAdmin(request, env);
@@ -153,8 +153,7 @@ export default {
         } catch(e) { return addCors(json({ error: e.message }, 500)); }
       }
 
-      // Admin: D1 staging 기반 셀프배포
-      // POST /admin/deploy-self?key=sjdeploy_2026
+      // Admin: D1 staging 湲곕컲 ??꾨같??      // POST /admin/deploy-self?key=sjdeploy_2026
       if ((path === '/api/admin/deploy-self' || path === '/admin/deploy-self') && request.method === 'POST') {
         const auth = await requireAdmin(request, env, { adminOnly: true });
         if (!auth) return addCors(json({ error: 'Unauthorized' }, 401));
@@ -180,8 +179,8 @@ export default {
         } catch(e) { return addCors(json({ error: e.message }, 500)); }
       }
 
-      // Admin: Worker 셀프배포 — R2에 코드 업로드 후 CF API로 자동 배포
-      // Step 1: POST /admin/deploy-worker/upload — 코드를 R2에 저장
+      // Admin: Worker ??꾨같????R2??肄붾뱶 ?낅줈????CF API濡??먮룞 諛고룷
+      // Step 1: POST /admin/deploy-worker/upload ??肄붾뱶瑜?R2?????
       if (path === '/admin/deploy-worker/upload' && request.method === 'POST') {
         const code = await request.text();
         if (!code || code.length < 100) return addCors(json({ error: 'Code too short' }, 400));
@@ -189,17 +188,17 @@ export default {
         return addCors(json({ success: true, size: code.length, stored: 'deploy/worker.js' }));
       }
 
-      // Step 2: POST /admin/deploy-worker/execute — R2에서 코드를 읽어 CF API로 배포
+      // Step 2: POST /admin/deploy-worker/execute ??R2?먯꽌 肄붾뱶瑜??쎌뼱 CF API濡?諛고룷
       if (path === '/admin/deploy-worker/execute' && request.method === 'POST') {
         const confirm = requireDeployConfirm(request);
         if (confirm) return addCors(confirm);
         try {
-          // R2에서 코드 읽기
+          // R2?먯꽌 肄붾뱶 ?쎄린
           const obj = await env.ASSETS.get('deploy/worker.js');
           if (!obj) return addCors(json({ error: 'No code in R2. Upload first via /admin/deploy-worker/upload' }, 404));
           const code = await obj.text();
 
-          // CF API 배포 설정
+          // CF API 諛고룷 ?ㅼ젙
           const accountId = '11672bfed94bba41cc2b50f8d8b62e10';
           const scriptName = 'studiojun';
           const apiToken = env.CF_API_TOKEN;
@@ -236,10 +235,10 @@ export default {
 
           const result = await resp.json();
           if (result.success) {
-            // 배포 성공 로그
+            // 諛고룷 ?깃났 濡쒓렇
             await env.DB.prepare(
-              "INSERT INTO notifications (user_id, type, title, body) VALUES (1, 'system', 'Worker 배포 완료', ?)"
-            ).bind(`자동배포 완료: ${code.length} bytes, ${result.result?.modified_on || 'ok'}`).run();
+              "INSERT INTO notifications (user_id, type, title, body) VALUES (1, 'system', 'Worker 諛고룷 ?꾨즺', ?)"
+            ).bind(`?먮룞諛고룷 ?꾨즺: ${code.length} bytes, ${result.result?.modified_on || 'ok'}`).run();
 
             return addCors(json({
               success: true,
@@ -255,8 +254,8 @@ export default {
         }
       }
 
-      // Admin: R2 모듈 업로드 — POST /admin/upload-module?name=xxx.js&key=sjdeploy_2026
-      // Chrome MCP에서 JS 코드를 직접 R2 modules/ 경로에 업로드
+      // Admin: R2 紐⑤뱢 ?낅줈????POST /admin/upload-module?name=xxx.js&key=sjdeploy_2026
+      // Chrome MCP?먯꽌 JS 肄붾뱶瑜?吏곸젒 R2 modules/ 寃쎈줈???낅줈??
       if ((path === '/admin/upload-module' || path === '/api/admin/upload-module') && request.method === 'POST') {
         const auth = await requireAdmin(request, env);
         if (!auth) return addCors(json({ error: 'Unauthorized' }, 401));
@@ -271,10 +270,10 @@ export default {
         } catch(e) { return addCors(json({ error: e.message }, 500)); }
       }
 
-      // Admin: D1 module_staging → R2 모듈 배포 (장기 안정 파이프라인)
-      // POST /admin/deploy-module-from-d1?key=sjdeploy_2026 — 전체 배포
-      // POST /admin/deploy-module-from-d1?name=xxx.js&key=sjdeploy_2026 — 단일 모듈
-      // 흐름: Dispatch가 D1 MCP로 module_staging에 base64 저장 → 이 엔드포인트 트리거 → R2 업로드
+      // Admin: D1 module_staging ??R2 紐⑤뱢 諛고룷 (?κ린 ?덉젙 ?뚯씠?꾨씪??
+      // POST /admin/deploy-module-from-d1?key=sjdeploy_2026 ???꾩껜 諛고룷
+      // POST /admin/deploy-module-from-d1?name=xxx.js&key=sjdeploy_2026 ???⑥씪 紐⑤뱢
+      // ?먮쫫: Dispatch媛 D1 MCP濡?module_staging??base64 ????????붾뱶?ъ씤???몃━嫄???R2 ?낅줈??
       if ((path === '/admin/deploy-module-from-d1' || path === '/api/admin/deploy-module-from-d1') && request.method === 'POST') {
         const auth = await requireAdmin(request, env);
         if (!auth) return addCors(json({ error: 'Unauthorized' }, 401));
@@ -303,7 +302,7 @@ export default {
         } catch(e) { return addCors(json({ error: e.message }, 500)); }
       }
 
-      // Admin: R2 모듈 목록 조회 — GET /admin/list-modules?key=sjdeploy_2026
+      // Admin: R2 紐⑤뱢 紐⑸줉 議고쉶 ??GET /admin/list-modules?key=sjdeploy_2026
       if ((path === '/admin/list-modules' || path === '/api/admin/list-modules') && request.method === 'GET') {
         const auth = await requireAdmin(request, env);
         if (!auth) return addCors(json({ error: 'Unauthorized' }, 401));
@@ -314,7 +313,7 @@ export default {
         } catch(e) { return addCors(json({ error: e.message }, 500)); }
       }
 
-      // Combo: POST /admin/deploy-worker — 원스텝 배포 (코드 업로드 + 즉시 배포)
+      // Combo: POST /admin/deploy-worker ???먯뒪??諛고룷 (肄붾뱶 ?낅줈??+ 利됱떆 諛고룷)
       if (path === '/admin/deploy-worker' && request.method === 'POST') {
         const confirm = requireDeployConfirm(request);
         if (confirm) return addCors(confirm);
@@ -322,11 +321,11 @@ export default {
           const code = await request.text();
           if (!code || code.length < 100) return addCors(json({ error: 'Code too short' }, 400));
 
-          // R2 백업
+          // R2 諛깆뾽
           await env.ASSETS.put('deploy/worker.js', code, { httpMetadata: { contentType: 'application/javascript' } });
           await env.ASSETS.put(`deploy/worker-backup-${Date.now()}.js`, code, { httpMetadata: { contentType: 'application/javascript' } });
 
-          // CF API 배포
+          // CF API 諛고룷
           const accountId = '11672bfed94bba41cc2b50f8d8b62e10';
           const scriptName = 'studiojun';
           const apiToken = env.CF_API_TOKEN;
@@ -364,7 +363,7 @@ export default {
           const result = await resp.json();
           if (result.success) {
             await env.DB.prepare(
-              "INSERT INTO notifications (user_id, type, title, body) VALUES (1, 'system', 'Worker 자동배포', ?)"
+              "INSERT INTO notifications (user_id, type, title, body) VALUES (1, 'system', 'Worker ?먮룞諛고룷', ?)"
             ).bind(`${code.length} bytes deployed at ${result.result?.modified_on || new Date().toISOString()}`).run();
 
             return addCors(json({
@@ -381,31 +380,37 @@ export default {
         }
       }
 
-      // AI 엔드포인트
+      // AI ?붾뱶?ъ씤??
       if (path.startsWith('/ai/')) {
         const res = await handleAI(path, request, env);
         return addCors(res);
       }
 
-      // R2 미디어 엔드포인트
+      // R2 誘몃뵒???붾뱶?ъ씤??
       if (path.startsWith('/r2/')) {
         const res = await handleR2(path, request, env);
         return addCors(res);
       }
 
-      // 가이드 비디오 처리 API (Whisper STT + Claude 요약/번역)
+      // 媛?대뱶 鍮꾨뵒??泥섎━ API (Whisper STT + Claude ?붿빟/踰덉뿭)
       if (path.startsWith('/api/guide/')) {
         const res = await handleGuideAPI(path, request, env);
         return addCors(res);
       }
 
-      // Storyboard 리뷰 API
+      // HeyGen Video Translate API
+      if (path.startsWith('/api/heygen/')) {
+        const res = await handleHeyGenAPI(path, request, env);
+        return addCors(res);
+      }
+
+      // Storyboard 由щ럭 API
       if (path.startsWith('/api/storyboard/')) {
         const res = await handleStoryboardAPI(path, request, env);
         return addCors(res);
       }
 
-      // Seedance 2.0 AI 렌더링 API
+      // Seedance 2.0 AI ?뚮뜑留?API
       if (path.startsWith('/api/seedance/')) {
         if (path === '/api/seedance/config') {
           const seedanceConfigAuth = await requireAdmin(request, env);
@@ -435,12 +440,12 @@ export default {
         return addCors(res);
       }
 
-      // 버전 API
+      // 踰꾩쟾 API
       if (path === '/api/version') {
         return addCors(json({ version: WORKER_VERSION, worker: 'studiojun' }));
       }
 
-      // 이메일 발송 API (MailChannels)
+      // ?대찓??諛쒖넚 API (MailChannels)
       if (path === '/api/email/send' && request.method === 'POST') {
         const user = await authenticateAny(request, env);
         if (!user || (user.role !== 'admin' && user.role !== 'pd')) return addCors(json({ error: 'Admin/PD only' }, 403));
@@ -468,11 +473,11 @@ export default {
         }
       }
 
-      // Google Sheets 연동 API (인증 필수)
+      // Google Sheets ?곕룞 API (?몄쬆 ?꾩닔)
       if (path.startsWith('/api/sheets/')) {
         const sheetsUser = await authenticateAny(request, env);
         if (!sheetsUser) return addCors(json({ error: 'Unauthorized' }, 401));
-        // writeback-config는 admin/pd 전용
+        // writeback-config??admin/pd ?꾩슜
         if (path === '/api/sheets/writeback-config' || path === '/api/sheets/config') {
           const sheetsRole = String(sheetsUser.role || '').toLowerCase();
           if (sheetsRole !== 'admin' && sheetsRole !== 'owner' && sheetsRole !== 'pd' && sheetsRole !== 'producer') {
@@ -483,7 +488,7 @@ export default {
         return addCors(res);
       }
 
-      // Slack Events API webhook (no JWT — verified by Slack signing secret)
+      // Slack Events API webhook (no JWT ??verified by Slack signing secret)
       if (path === '/api/slack/webhook' && request.method === 'POST') {
         const res = await handleSlackWebhook(request, env, ctx);
         return addCors(res);
@@ -494,19 +499,19 @@ export default {
         return addCors(res);
       }
 
-      // 알림/리포트 API (progress_reports + cowork_events)
+      // ?뚮┝/由ы룷??API (progress_reports + cowork_events)
       if (path.startsWith('/api/reports')) {
         const res = await handleReportsAPI(path, request, env);
         return addCors(res);
       }
 
-      // 이미지 생성 API
-      // [v5.14.25] /api/imagegen 제거 — /api/gpt-image로 통합
+      // ?대?吏 ?앹꽦 API
+      // [v5.14.25] /api/imagegen ?쒓굅 ??/api/gpt-image濡??듯빀
       if (path.startsWith('/api/imagegen')) {
         return addCors(json({ error: 'Deprecated. Use /api/gpt-image instead.', redirect: '/api/gpt-image' + path.replace('/api/imagegen', '') }, 410));
       }
 
-      // Opus 4.7 분석 파이프라인 API
+      // Opus 4.7 遺꾩꽍 ?뚯씠?꾨씪??API
       if (path.startsWith('/api/analysis/')) {
         const res = await handleAnalysisPipelineAPI(path, request, env);
         return addCors(res);
@@ -524,13 +529,13 @@ export default {
         return addCors(res);
       }
 
-      // 피드백 루프 API
+      // ?쇰뱶諛?猷⑦봽 API
       if (path.startsWith('/api/feedback')) {
         const res = await handleFeedbackAPI(path, request, env);
         return addCors(res);
       }
 
-      // Admin API (비용 모니터링 등)
+      // Admin API (鍮꾩슜 紐⑤땲?곕쭅 ??
       if (path.startsWith('/api/admin/')) {
         const adminApiAuth = await requireAdmin(request, env);
         if (!adminApiAuth) return addCors(json({ error: 'Unauthorized' }, 401), request, env);
@@ -538,25 +543,25 @@ export default {
         return addCors(res);
       }
 
-      // 가입 승인요청 관리 API
+      // 媛???뱀씤?붿껌 愿由?API
       if (path.startsWith('/api/signup-requests')) {
         const res = await handleSignupRequests(path, request, env);
         return addCors(res);
       }
 
-      // 승인요청 API
+      // ?뱀씤?붿껌 API
       if (path.startsWith('/api/approvals')) {
         const res = await handleApprovalsAPI(path, request, env);
         return addCors(res);
       }
 
-      // API 라우팅
+      // API ?쇱슦??
       if (path.startsWith('/api/')) {
         const res = await handleAPI(path, request, env);
         return addCors(res);
       }
 
-      // R2 모듈 서빙: /modules/*.js
+      // R2 紐⑤뱢 ?쒕튃: /modules/*.js
       if (path.startsWith('/modules/') && path.endsWith('.js')) {
         const key = path.slice(1); // 'modules/ai-studio.js'
         const obj = await env.ASSETS.get(key);
@@ -600,7 +605,7 @@ export default {
       if (path === '/production' || path.startsWith('/production/')) {
         const rel = decodeURIComponent(path.replace(/^\/production\/?/, ''));
 
-        // P0-3: settings 페이지 admin/pd 전용 게이트
+        // P0-3: settings ?섏씠吏 admin/pd ?꾩슜 寃뚯씠??
         if (rel === 'settings' || rel.startsWith('settings/')) {
           const jwtToken = getJwtFromCookie(request);
           if (!jwtToken) return redirectNoStore(url.origin + '/login');
@@ -637,12 +642,12 @@ export default {
         return new Response('Production UI asset not found', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
       }
 
-      // [v5.14.27] /app/* sub-paths → /production/* redirect (Next.js basePath migration)
+      // [v5.14.27] /app/* sub-paths ??/production/* redirect (Next.js basePath migration)
       if (path.startsWith('/app/') && path !== '/app') {
         return Response.redirect(url.origin + path.replace('/app/', '/production/'), 302);
       }
 
-      // Serve HTML from D1 — route to page keys
+      // Serve HTML from D1 ??route to page keys
       const PAGE_ROUTES = {
         '/app': '/app', '/design': '/design', '/asset': '/asset',
         '/animation': '/animation', '/render': '/render', '/fx': '/fx',
@@ -650,7 +655,7 @@ export default {
         '/reviews': '/reviews', '/schedule': '/schedule',
         '/seedance': '/seedance', '/seedance-auto': '/seedance-auto'
       };
-      // [v5.14.25] 레거시 페이지 → production UI 리다이렉트
+      // [v5.14.25] ?덇굅???섏씠吏 ??production UI 由щ떎?대젆??
       const LEGACY_REDIRECTS = {
         '/legacy': '/production', '/imagegen': '/production',
         '/higgsfield': '/production/higgsfield',
@@ -663,7 +668,7 @@ export default {
       }
       const pageKey = PAGE_ROUTES[cleanPath] || '/';
 
-      // JWT 쿠키 인증: 메인 앱(/) 접근 시 로그인 필수
+      // JWT 荑좏궎 ?몄쬆: 硫붿씤 ??/) ?묎렐 ??濡쒓렇???꾩닔
       if (pageKey === '/' || pageKey === '/seedance' || pageKey === '/seedance-auto') {
         const jwtCookie = getJwtFromCookie(request);
         if (!jwtCookie) {
@@ -680,7 +685,7 @@ export default {
         "SELECT content FROM static_pages WHERE key = ?"
       ).bind(pageKey).first();
       if (page && page.content) {
-        // 버전 자동 주입: HTML 내 VER 변수와 표시 텍스트를 Worker 버전으로 교체
+        // 踰꾩쟾 ?먮룞 二쇱엯: HTML ??VER 蹂?섏? ?쒖떆 ?띿뒪?몃? Worker 踰꾩쟾?쇰줈 援먯껜
         let html = page.content;
         if (pageKey === '/') {
           html = html.replace(/var VER = 'v[\d.]+'/g, "var VER = '" + WORKER_VERSION + "'");
@@ -702,7 +707,7 @@ export default {
 
 // ===== AI Router =====
 async function handleAI(path, req, env) {
-  // 인증 (JWT 또는 API 토큰)
+  // ?몄쬆 (JWT ?먮뒗 API ?좏겙)
   const user = await authenticateAny(req, env);
   if (!user) return json({ error: 'Unauthorized' }, 401);
 
@@ -905,28 +910,22 @@ function buildSystemPrompt(ctx, extra) {
     teamSummary[t.team][t.status] = t.cnt;
   }
 
-  return `당신은 STUDIOJUN 3D 애니메이션 프로덕션 관리 AI 어시스턴트입니다.
-항상 한국어로 답변하세요. 데이터에 기반한 정확한 답변만 하세요.
+  return `?뱀떊? STUDIOJUN 3D ?좊땲硫붿씠???꾨줈?뺤뀡 愿由?AI ?댁떆?ㅽ꽩?몄엯?덈떎.
+??긽 ?쒓뎅?대줈 ?듬??섏꽭?? ?곗씠?곗뿉 湲곕컲???뺥솗???듬?留??섏꽭??
 
-## 현재 프로젝트 현황
-- 전체 샷: ${stats.total}개
-- 완료(done): ${stats.done}개 (${progress}%)
-- 리뷰(confirm): ${stats.review}개
-- 진행중(production): ${stats.production}개
-- 대기(pending): ${stats.pending}개
-- 홀드(hold): ${stats.hold}개
-
-## 팀별 현황
+## ?꾩옱 ?꾨줈?앺듃 ?꾪솴
+- ?꾩껜 ?? ${stats.total}媛?- ?꾨즺(done): ${stats.done}媛?(${progress}%)
+- 由щ럭(confirm): ${stats.review}媛?- 吏꾪뻾以?production): ${stats.production}媛?- ?湲?pending): ${stats.pending}媛?- ???hold): ${stats.hold}媛?
+## ?蹂??꾪솴
 ${Object.entries(teamSummary).map(([team, s]) =>
-  `- ${team}: 전체 ${Object.values(s).reduce((a,b)=>a+b,0)}개 / 완료 ${s.done||0} / 진행 ${s.production||0} / 리뷰 ${s.confirm||0} / 홀드 ${s.hold||0}`
+  `- ${team}: ?꾩껜 ${Object.values(s).reduce((a,b)=>a+b,0)}媛?/ ?꾨즺 ${s.done||0} / 吏꾪뻾 ${s.production||0} / 由щ럭 ${s.confirm||0} / ???${s.hold||0}`
 ).join('\n')}
 
-## 에피소드별 진행률
-${epStats.map(e => `- ${e.ep}: ${e.done}/${e.total} (${Math.round(e.done/e.total*100)}%)`).join('\n')}
+## ?먰뵾?뚮뱶蹂?吏꾪뻾瑜?${epStats.map(e => `- ${e.ep}: ${e.done}/${e.total} (${Math.round(e.done/e.total*100)}%)`).join('\n')}
 
-## 담당자별 워크로드 (상위)
+## ?대떦?먮퀎 ?뚰겕濡쒕뱶 (?곸쐞)
 ${assigneeLoad.slice(0, 15).map(a =>
-  `- ${a.assignee} (${a.team}): 전체 ${a.total} / 완료 ${a.done} / 진행 ${a.in_progress}`
+  `- ${a.assignee} (${a.team}): ?꾩껜 ${a.total} / ?꾨즺 ${a.done} / 吏꾪뻾 ${a.in_progress}`
 ).join('\n')}
 
 ${extra || ''}`;
@@ -993,14 +992,14 @@ async function aiChat(req, env, user) {
   const projectId = project_id || 'default';
   const ctx = await getProjectContext(env, projectId);
   const systemPrompt = buildSystemPrompt(ctx, `
-질문에 간결하고 명확하게 답변하세요.
-수치 데이터를 포함할 때는 표 형식을 사용하세요.
-추측하지 말고, 데이터에 없는 내용은 "데이터가 없습니다"라고 답하세요.`);
+吏덈Ц??媛꾧껐?섍퀬 紐낇솗?섍쾶 ?듬??섏꽭??
+?섏튂 ?곗씠?곕? ?ы븿???뚮뒗 ???뺤떇???ъ슜?섏꽭??
+異붿륫?섏? 留먭퀬, ?곗씠?곗뿉 ?녿뒗 ?댁슜? "?곗씠?곌? ?놁뒿?덈떎"?쇨퀬 ?듯븯?몄슂.`);
 
   const model = 'claude-haiku-4-5-20251001';
   const result = await callClaude(env, model, systemPrompt, message, 1024);
 
-  // 대화 기록 저장
+  // ???湲곕줉 ???
   await env.DB.prepare(
     'INSERT INTO ai_conversations (project_id, user_id, role, content, model) VALUES (?, ?, ?, ?, ?)'
   ).bind(projectId, user.id, 'user', message, null).run();
@@ -1012,8 +1011,8 @@ async function aiChat(req, env, user) {
   return json({ reply: result.content[0].text, model });
 }
 
-// ===== 총괄 프로듀서 AI 채팅 =====
-// POST /ai/producer — 프로듀서 전용 Claude 소통 채널
+// ===== 珥앷큵 ?꾨줈???AI 梨꾪똿 =====
+// POST /ai/producer ???꾨줈????꾩슜 Claude ?뚰넻 梨꾨꼸
 async function aiProducerChat(req, env, user) {
   const { message, project_id, history } = await req.json();
   if (!message) return json({ error: 'message required' }, 400);
@@ -1029,51 +1028,48 @@ async function aiProducerChat(req, env, user) {
     teamSummary[t.team][t.status] = t.cnt;
   }
 
-  // 위험 요소 감지
+  // ?꾪뿕 ?붿냼 媛먯?
   const risks = [];
   for (const [team, s] of Object.entries(teamSummary)) {
     const total = Object.values(s).reduce((a,b)=>a+b,0);
     const hold = s.hold || 0;
-    if (hold > 2) risks.push(`🔴 ${team}팀: 홀드 ${hold}건 — 즉시 확인 필요`);
+    if (hold > 2) risks.push(`?뵶 ${team}?: ???${hold}嫄???利됱떆 ?뺤씤 ?꾩슂`);
   }
   const overloadedMembers = assigneeLoad.filter(a => a.in_progress >= 4);
   for (const m of overloadedMembers) {
-    risks.push(`🟡 ${m.assignee} (${m.team}): 진행중 ${m.in_progress}건 — 과부하`);
+    risks.push(`${m.assignee} (${m.team}): in progress ${m.in_progress} - overloaded`);
   }
 
-  const systemPrompt = `당신은 JUN 총괄 프로듀서의 전용 AI 비서입니다.
-3D 애니메이션 프로덕션 STUDIOJUN의 전 팀 상황을 실시간으로 파악하고 보고합니다.
+  const systemPrompt = `?뱀떊? JUN 珥앷큵 ?꾨줈??쒖쓽 ?꾩슜 AI 鍮꾩꽌?낅땲??
+3D ?좊땲硫붿씠???꾨줈?뺤뀡 STUDIOJUN????? ?곹솴???ㅼ떆媛꾩쑝濡??뚯븙?섍퀬 蹂닿퀬?⑸땲??
 
-## 현재 프로젝트 실시간 데이터
-- 전체 샷: ${stats.total}개 | 완료: ${stats.done}개 (${progress}%) | 진행: ${stats.production}개 | 리뷰: ${stats.review}개 | 대기: ${stats.pending}개 | 홀드: ${stats.hold}개
-
-## 팀별 현황
+## ?꾩옱 ?꾨줈?앺듃 ?ㅼ떆媛??곗씠??- ?꾩껜 ?? ${stats.total}媛?| ?꾨즺: ${stats.done}媛?(${progress}%) | 吏꾪뻾: ${stats.production}媛?| 由щ럭: ${stats.review}媛?| ?湲? ${stats.pending}媛?| ??? ${stats.hold}媛?
+## ?蹂??꾪솴
 ${Object.entries(teamSummary).map(([team, s]) => {
   const total = Object.values(s).reduce((a,b)=>a+b,0);
-  return `- ${team}팀: 전체 ${total} | 완료 ${s.done||0} | 진행 ${s.production||0} | 리뷰 ${s.confirm||0} | 홀드 ${s.hold||0}`;
+  return `- ${team}?: ?꾩껜 ${total} | ?꾨즺 ${s.done||0} | 吏꾪뻾 ${s.production||0} | 由щ럭 ${s.confirm||0} | ???${s.hold||0}`;
 }).join('\n')}
 
-## 에피소드 진행률
-${epStats.map(e => `- ${e.ep}: ${e.done}/${e.total} (${Math.round(e.done/e.total*100)}%)`).join('\n')}
+## ?먰뵾?뚮뱶 吏꾪뻾瑜?${epStats.map(e => `- ${e.ep}: ${e.done}/${e.total} (${Math.round(e.done/e.total*100)}%)`).join('\n')}
 
-## 담당자 워크로드 (상위)
-${assigneeLoad.slice(0, 10).map(a => `- ${a.assignee} (${a.team}): 진행 ${a.in_progress}건 / 완료 ${a.done}건`).join('\n')}
+## ?대떦???뚰겕濡쒕뱶 (?곸쐞)
+${assigneeLoad.slice(0, 10).map(a => `- ${a.assignee} (${a.team}): in progress ${a.in_progress} / done ${a.done}`).join('\n')}
 
-## 현재 위험 요소
-${risks.length > 0 ? risks.join('\n') : '⚠️ 감지된 위험 없음'}
+## ?꾩옱 ?꾪뿕 ?붿냼
+${risks.length > 0 ? risks.join('\n') : '?좑툘 媛먯????꾪뿕 ?놁쓬'}
 
-## 소통 원칙
-- 항상 한국어로 답변
-- 데이터 기반으로 정확하게 보고
-- 위험 요소는 먼저 알림
-- 프로듀서 결정이 필요한 사항은 명확히 제시
-- 간결하고 실용적으로 (총괄 프로듀서 시간은 귀하다)
-- 팀에 전달할 메시지는 명확한 액션 아이템 포함`;
+## ?뚰넻 ?먯튃
+- ??긽 ?쒓뎅?대줈 ?듬?
+- ?곗씠??湲곕컲?쇰줈 ?뺥솗?섍쾶 蹂닿퀬
+- ?꾪뿕 ?붿냼??癒쇱? ?뚮┝
+- ?꾨줈???寃곗젙???꾩슂???ы빆? 紐낇솗???쒖떆
+- 媛꾧껐?섍퀬 ?ㅼ슜?곸쑝濡?(珥앷큵 ?꾨줈????쒓컙? 洹?섎떎)
+- ????꾨떖??硫붿떆吏??紐낇솗???≪뀡 ?꾩씠???ы븿`;
 
-  // 대화 히스토리 포함 (멀티턴)
+  // ????덉뒪?좊━ ?ы븿 (硫?고꽩)
   const messages = [];
   if (history && Array.isArray(history)) {
-    for (const h of history.slice(-10)) { // 최근 10개만
+    for (const h of history.slice(-10)) { // 理쒓렐 10媛쒕쭔
       messages.push({ role: h.role, content: h.content });
     }
   }
@@ -1093,7 +1089,7 @@ ${risks.length > 0 ? risks.join('\n') : '⚠️ 감지된 위험 없음'}
   if (data.error) throw new Error(data.error.message);
   const reply = data.content[0].text;
 
-  // 대화 기록 저장
+  // ???湲곕줉 ???
   await env.DB.prepare(
     'INSERT INTO ai_conversations (project_id, user_id, role, content, model) VALUES (?, ?, ?, ?, ?)'
   ).bind(projectId, user.id, 'user', message, null).run();
@@ -1104,7 +1100,7 @@ ${risks.length > 0 ? risks.join('\n') : '⚠️ 감지된 위험 없음'}
   return json({ reply, model, risks, progress, stats });
 }
 
-// POST /ai/briefing — 오전/오후/주간 자동 브리핑
+// POST /ai/briefing - 오전/오후/주간 자동 브리핑
 async function aiProducerBriefing(req, env, user) {
   const { type, project_id } = await req.json(); // type: 'morning' | 'afternoon' | 'weekly'
   const projectId = project_id || 'default';
@@ -1128,21 +1124,20 @@ async function generateBriefing(env, projectId, type, userId) {
 
   const risks = [];
   for (const [team, s] of Object.entries(teamSummary)) {
-    if ((s.hold || 0) > 2) risks.push(`🔴 ${team}팀 홀드 ${s.hold}건`);
-    if ((s.production || 0) === 0 && (s.pending || 0) > 5) risks.push(`🟡 ${team}팀 진행 샷 없음 — 배정 필요`);
+    if ((s.hold || 0) > 2) risks.push(`⚠️ ${team}팀 홀드 ${s.hold}개`);
+    if ((s.production || 0) === 0 && (s.pending || 0) > 5) risks.push(`🔴 ${team}팀 진행 중 없음, 배정 필요`);
   }
   const overloaded = assigneeLoad.filter(a => a.in_progress >= 4);
-  for (const m of overloaded) risks.push(`🟡 ${m.assignee}(${m.team}) 과부하 ${m.in_progress}건`);
+  for (const m of overloaded) risks.push(`🔴 ${m.assignee}(${m.team}) 과부하 ${m.in_progress}개`);
 
-  const briefingType = { morning: '오전 브리핑', afternoon: '오후 점검', weekly: '주간 리포트' }[type] || '브리핑';
-  const prompt = `다음 3D 애니메이션 프로덕션 데이터를 바탕으로 총괄 프로듀서(JUN)를 위한 ${briefingType}를 작성하세요.
+  const briefingType = { morning: '오전 브리핑', afternoon: '오후 리뷰', weekly: '주간 리포트' }[type] || '브리핑';
+  const prompt = `다음 3D 애니메이션 프로덕션 데이터를 바탕으로 총괄 프로듀서(JUN)를 위한 ${briefingType}을 작성하세요.
 
-## 날짜: ${dateStr}
+## 일시: ${dateStr}
 ## 프로젝트 현황
 - 전체: ${stats.total}샷 | 완료: ${stats.done}(${progress}%) | 진행: ${stats.production} | 리뷰: ${stats.review} | 홀드: ${stats.hold}
 
-## 팀별
-${Object.entries(teamSummary).map(([t, s]) =>
+## 팀별 ${Object.entries(teamSummary).map(([t, s]) =>
   `${t}: 완료${s.done||0}/진행${s.production||0}/리뷰${s.confirm||0}/홀드${s.hold||0}`
 ).join(', ')}
 
@@ -1152,14 +1147,14 @@ ${epStats.map(e => `${e.ep}: ${e.done}/${e.total}(${Math.round(e.done/e.total*10
 ## 감지된 위험
 ${risks.length > 0 ? risks.join('\n') : '없음'}
 
-${type === 'morning' ? '오전 브리핑: 오늘 목표, 위험 요소, 프로듀서 결정 필요 항목 포함' : ''}
-${type === 'afternoon' ? '오후 점검: 오늘 진행 현황, 내일 준비사항, 미완료 이슈 포함' : ''}
-${type === 'weekly' ? '주간 리포트: 이번 주 성과, 다음 주 계획, 팀별 KPI, 스케줄 리스크 포함' : ''}
+${type === 'morning' ? '오전 브리핑: 오늘 목표, 위험 요소, 프로듀서 결정 필요 사항 포함' : ''}
+${type === 'afternoon' ? '오후 리뷰: 오늘 진행 현황, 내일 준비사항, 미완료 이슈 포함' : ''}
+${type === 'weekly' ? '주간 리포트: 이번 주 성과, 다음 주 계획, 팀별 KPI, 대응 필요 리스크 포함' : ''}
 
 간결하고 실용적으로 작성. 프로듀서가 즉시 판단할 수 있도록.`;
 
   const model = 'claude-sonnet-4-6';
-  const result = await callClaude(env, model, '당신은 STUDIOJUN 프로덕션 AI 비서입니다. 항상 한국어로 답변합니다.', prompt, 2048);
+  const result = await callClaude(env, model, '당신은 STUDIOJUN 프로덕션 AI 비서입니다. 항상 한국어로 답합니다.', prompt, 2048);
   const briefingText = result.content[0].text;
 
   // DB에 브리핑 저장
@@ -1171,13 +1166,12 @@ ${type === 'weekly' ? '주간 리포트: 이번 주 성과, 다음 주 계획, �
 
   return json({ briefing: briefingText, type, date: dateStr, progress, risks, stats });
 }
-
-// Cron에서 호출되는 스케줄 브리핑 (외부 전달용)
+// Cron에서 실행하는 자동 브리핑 (슬랙 발신)
 async function sendScheduledBriefing(env, type) {
   const projectId = 'default';
   console.log(`[CRON] Generating ${type} briefing...`);
 
-  // D1에서 실데이터 집계
+  // D1에서 데이터 조회
   let report = '';
   try {
     const stats = await env.DB.prepare(`
@@ -1206,27 +1200,27 @@ async function sendScheduledBriefing(env, type) {
     if (type === 'morning') {
       report = `☀️ *모닝 브리핑* | ${new Date().toISOString().slice(0,10)}\n\n` +
         `📊 *프로젝트 현황*\n` +
-        `• 에피소드: ${stats.ep_count}개 | 샷: ${stats.shot_total}개 (완료 ${pct}%)\n` +
-        `• 진행중 ${stats.shot_wip} | 대기 ${stats.shot_pending} | 에셋 ${stats.asset_total}개\n` +
+        `• 에피소드: ${stats.ep_count}개 | 샷 ${stats.shot_total}개(완료 ${pct}%)\n` +
+        `• 진행중 ${stats.shot_wip} | 대기 ${stats.shot_pending} | 자산 ${stats.asset_total}개\n` +
         `• 활성 멤버: ${stats.member_count}명\n\n` +
-        `📈 *최근 24시간*\n` +
-        `• 샷 업데이트: ${recentShots?.cnt || 0}건 | 할일 업데이트: ${recentTodos?.cnt || 0}건`;
+        `🔥 *최근 24시간*\n` +
+        `• 샷 업데이트: ${recentShots?.cnt || 0}건 | 투두 업데이트: ${recentTodos?.cnt || 0}건`;
     } else if (type === 'afternoon') {
-      report = `🌅 *오후 현황* | 샷 진행률 ${pct}% (${stats.shot_done}/${stats.shot_total})\n` +
+      report = `🌅 *오후 현황* | 전체 진행률 ${pct}% (${stats.shot_done}/${stats.shot_total})\n` +
         `진행중 ${stats.shot_wip} | 대기 ${stats.shot_pending} | 오늘 업데이트 ${recentShots?.cnt || 0}건`;
     } else {
       // weekly
-      report = `📋 *주간 리포트* | ${new Date().toISOString().slice(0,10)}\n\n` +
-        `• 전체 샷: ${stats.shot_total}개 (완료 ${pct}%)\n` +
-        `• 에셋: ${stats.asset_total}개 | 멤버: ${stats.member_count}명\n` +
-        `• 금주 샷 업데이트: ${recentShots?.cnt || 0}건 | 할일: ${recentTodos?.cnt || 0}건`;
+      report = `📅 *주간 리포트* | ${new Date().toISOString().slice(0,10)}\n\n` +
+        `• 전체 샷 ${stats.shot_total}개(완료 ${pct}%)\n` +
+        `• 자산: ${stats.asset_total}개 | 멤버: ${stats.member_count}명\n` +
+        `• 금주 샷 업데이트: ${recentShots?.cnt || 0}건 | 투두: ${recentTodos?.cnt || 0}건`;
     }
   } catch (e) {
     report = `⚠️ [${type}] 브리핑 데이터 조회 실패: ${e.message}`;
     console.error('[CRON] Stats err:', e.message);
   }
 
-  // Slack 커맨드센터에 GREEN 봇으로 포스팅
+  // Slack 커맨드센터에 GREEN 봇으로 포스트
   try {
     const token = await getSlackConfigValue(env, 'SLACK_BOT_TOKEN_GREEN');
     if (token) {
@@ -1243,8 +1237,7 @@ async function sendScheduledBriefing(env, type) {
 
   console.log(`[CRON] ${type} briefing sent to Slack.`);
 }
-
-// POST /ai/query — 자연어 데이터 쿼리
+// POST /ai/query ???먯뿰???곗씠??荑쇰━
 async function aiQuery(req, env, user) {
   const { question, project_id } = await req.json();
   if (!question) return json({ error: 'question required' }, 400);
@@ -1253,10 +1246,9 @@ async function aiQuery(req, env, user) {
   const ctx = await getProjectContext(env, projectId);
 
   const model = 'claude-sonnet-4-6-20250514';
-  const sqlPrompt = `당신은 SQL 전문가입니다. 사용자의 질문을 SQLite 쿼리로 변환하세요.
+  const sqlPrompt = `?뱀떊? SQL ?꾨Ц媛?낅땲?? ?ъ슜?먯쓽 吏덈Ц??SQLite 荑쇰━濡?蹂?섑븯?몄슂.
 
-## 데이터베이스 스키마
-- shots: id, project_id, scene, team, status, priority, assignee, start_date, due, note, created_at, updated_at
+## ?곗씠?곕쿋?댁뒪 ?ㅽ궎留?- shots: id, project_id, scene, team, status, priority, assignee, start_date, due, note, created_at, updated_at
   - status: 'pending', 'production', 'confirm', 'done', 'hold'
   - team: 'scenario', 'design', 'modeling', 'rigging', 'animation', 'render', 'fx'
   - priority: 'high', 'mid', 'low'
@@ -1266,36 +1258,36 @@ async function aiQuery(req, env, user) {
 - activity_log: id, project_id, actor_name, action, target_type, target_id, detail, created_at
 - members: id, name, email, role, team, initials
 
-project_id는 항상 '${projectId}'로 필터링하세요.
-SELECT 쿼리만 허용됩니다. INSERT/UPDATE/DELETE는 금지합니다.
-JSON 형식으로 응답하세요: {"sql": "SELECT ...", "description": "쿼리 설명"}`;
+project_id????긽 '${projectId}'濡??꾪꽣留곹븯?몄슂.
+SELECT 荑쇰━留??덉슜?⑸땲?? INSERT/UPDATE/DELETE??湲덉??⑸땲??
+JSON ?뺤떇?쇰줈 ?묐떟?섏꽭?? {"sql": "SELECT ...", "description": "荑쇰━ ?ㅻ챸"}`;
 
   const sqlResult = await callClaude(env, model, sqlPrompt, question, 500);
   let sqlText = sqlResult.content[0].text;
 
-  // JSON 파싱
+  // JSON ?뚯떛
   let sqlObj;
   try {
     const jsonMatch = sqlText.match(/\{[\s\S]*\}/);
     sqlObj = JSON.parse(jsonMatch[0]);
   } catch {
-    return json({ reply: '질문을 이해하지 못했습니다. 다시 질문해주세요.', raw: sqlText });
+    return json({ reply: '吏덈Ц???댄빐?섏? 紐삵뻽?듬땲?? ?ㅼ떆 吏덈Ц?댁＜?몄슂.', raw: sqlText });
   }
 
-  // SQL 안전성 검사
+  // SQL ?덉쟾??寃??
   const sqlLower = sqlObj.sql.toLowerCase();
   if (sqlLower.includes('drop') || sqlLower.includes('delete') || sqlLower.includes('update') || sqlLower.includes('insert') || sqlLower.includes('alter')) {
-    return json({ error: '읽기 전용 쿼리만 허용됩니다' }, 400);
+    return json({ error: '?쎄린 ?꾩슜 荑쇰━留??덉슜?⑸땲?' }, 400);
   }
 
-  // 쿼리 실행
+  // 荑쇰━ ?ㅽ뻾
   try {
     const { results } = await env.DB.prepare(sqlObj.sql).all();
 
-    // 결과를 자연어로 변환
-    const summaryPrompt = buildSystemPrompt(ctx, '사용자의 질문에 대한 SQL 쿼리 결과를 한국어로 요약하세요. 표 형식을 활용하세요.');
+    // 寃곌낵瑜??먯뿰?대줈 蹂??
+    const summaryPrompt = buildSystemPrompt(ctx, '?ъ슜?먯쓽 吏덈Ц?????SQL 荑쇰━ 寃곌낵瑜??쒓뎅?대줈 ?붿빟?섏꽭?? ???뺤떇???쒖슜?섏꽭??');
     const summaryResult = await callClaude(env, 'claude-haiku-4-5-20251001', summaryPrompt,
-      `질문: ${question}\nSQL: ${sqlObj.sql}\n결과 (${results.length}행):\n${JSON.stringify(results.slice(0, 50), null, 2)}`,
+      `吏덈Ц: ${question}\nSQL: ${sqlObj.sql}\n寃곌낵 (${results.length}??:\n${JSON.stringify(results.slice(0, 50), null, 2)}`,
       1024
     );
 
@@ -1312,17 +1304,17 @@ JSON 형식으로 응답하세요: {"sql": "SELECT ...", "description": "쿼리 
       data: results.slice(0, 100)
     });
   } catch (sqlErr) {
-    return json({ reply: `쿼리 실행 오류: ${sqlErr.message}`, sql: sqlObj.sql }, 500);
+    return json({ reply: `荑쇰━ ?ㅽ뻾 ?ㅻ쪟: ${sqlErr.message}`, sql: sqlObj.sql }, 500);
   }
 }
 
-// POST /ai/analyze — 병목 분석
+// POST /ai/analyze ??蹂묐ぉ 遺꾩꽍
 async function aiAnalyze(req, env, user) {
   const { project_id, depth } = await req.json();
   const projectId = project_id || 'default';
   const ctx = await getProjectContext(env, projectId);
 
-  // 추가 데이터: 마감 임박 샷, 오래 진행 중인 샷
+  // 異붽? ?곗씠?? 留덇컧 ?꾨컯 ?? ?ㅻ옒 吏꾪뻾 以묒씤 ??
   const { results: overdue } = await env.DB.prepare(`
     SELECT id, scene, team, assignee, due, status FROM shots
     WHERE project_id = ? AND due != '' AND due < date('now') AND status NOT IN ('done')
@@ -1342,30 +1334,27 @@ async function aiAnalyze(req, env, user) {
   `).bind(projectId).all();
 
   const extraContext = `
-## 마감 초과 샷 (${overdue.length}개)
-${overdue.map(s => `- ${s.id} (${s.team}/${s.assignee}) 마감: ${s.due}`).join('\n') || '없음'}
+## 留덇컧 珥덇낵 ??(${overdue.length}媛?
+${overdue.map(s => `- ${s.id} (${s.team}/${s.assignee}) 留덇컧: ${s.due}`).join('\n') || '?놁쓬'}
 
-## 7일 이상 진행 변동 없는 샷 (${stale.length}개)
-${stale.map(s => `- ${s.id} (${s.team}/${s.assignee}) 마지막 업데이트: ${new Date(s.updated_at).toLocaleDateString()}`).join('\n') || '없음'}
+## 7???댁긽 吏꾪뻾 蹂???녿뒗 ??(${stale.length}媛?
+${stale.map(s => `- ${s.id} (${s.team}/${s.assignee}) 留덉?留??낅뜲?댄듃: ${new Date(s.updated_at).toLocaleDateString()}`).join('\n') || '?놁쓬'}
 
-## 홀드 샷 (${holdShots.length}개)
-${holdShots.map(s => `- ${s.id} (${s.team}/${s.assignee}) 사유: ${s.note || '미기재'}`).join('\n') || '없음'}`;
+## ?????(${holdShots.length}媛?
+${holdShots.map(s => `- ${s.id} (${s.team}/${s.assignee}) ?ъ쑀: ${s.note || '誘멸린'}`).join('\n') || '?놁쓬'}`;
 
   const model = 'claude-sonnet-4-6-20250514';
   const systemPrompt = buildSystemPrompt(ctx, extraContext + `
 
-## 분석 요청
-다음 항목을 분석하세요:
-1. **병목 팀/담당자**: 어떤 팀이나 담당자가 가장 지연되고 있는지
-2. **위험 에피소드**: 진행률이 낮은 에피소드
-3. **마감 위험**: 마감 초과 및 임박 샷
-4. **리소스 불균형**: 워크로드가 과도한 담당자
-5. **개선 제안**: 구체적인 액션 아이템 3-5개
-
-마크다운 형식으로 구조화된 보고서를 작성하세요.`);
+## 遺꾩꽍 ?붿껌
+?ㅼ쓬 ??ぉ??遺꾩꽍?섏꽭??
+1. **蹂묐ぉ ?/?대떦??*: ?대뼡 ??대굹 ?대떦?먭? 媛??吏?곕릺怨??덈뒗吏
+2. **?꾪뿕 ?먰뵾?뚮뱶**: 吏꾪뻾瑜좎씠 ??? ?먰뵾?뚮뱶
+3. **留덇컧 ?꾪뿕**: 留덇컧 珥덇낵 諛??꾨컯 ??4. **由ъ냼??遺덇퇏??*: ?뚰겕濡쒕뱶媛 怨쇰룄???대떦??5. **媛쒖꽑 ?쒖븞**: 援ъ껜?곸씤 ?≪뀡 ?꾩씠??3-5媛?
+留덊겕?ㅼ슫 ?뺤떇?쇰줈 援ъ“?붾맂 蹂닿퀬?쒕? ?묒꽦?섏꽭??`);
 
   const result = await callClaude(env, model, systemPrompt,
-    depth === 'detailed' ? '전체 프로젝트에 대한 상세 병목 분석을 해주세요.' : '프로젝트 병목 분석 요약을 해주세요.',
+    depth === 'detailed' ? '?꾩껜 ?꾨줈?앺듃??????곸꽭 蹂묐ぉ 遺꾩꽍???댁＜?몄슂.' : '?꾨줈?앺듃 蹂묐ぉ 遺꾩꽍 ?붿빟???댁＜?몄슂.',
     2048
   );
 
@@ -1378,14 +1367,14 @@ async function aiReport(req, env, user, type) {
   const { project_id } = await req.json();
   const projectId = project_id || 'default';
 
-  // 캐시 확인 (같은 날/같은 주의 보고서가 있으면 재사용)
+  // 罹먯떆 ?뺤씤 (媛숈? ??媛숈? 二쇱쓽 蹂닿퀬?쒓? ?덉쑝硫??ъ궗??
   const cacheId = `${type}_${projectId}_${new Date().toISOString().slice(0, type === 'daily' ? 10 : 7)}`;
   const cached = await env.DB.prepare('SELECT content FROM report_cache WHERE id = ?').bind(cacheId).first();
   if (cached) return json({ reply: cached.content, cached: true });
 
   const ctx = await getProjectContext(env, projectId);
 
-  const period = type === 'daily' ? '오늘' : '이번 주';
+  const period = type === 'daily' ? 'daily' : 'weekly';
   const timeFilter = type === 'daily'
     ? Date.now() - 24 * 60 * 60 * 1000
     : Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -1401,31 +1390,30 @@ async function aiReport(req, env, user, type) {
   `).bind(projectId, timeFilter).all();
 
   const extraContext = `
-## ${period} 활동 (${recentChanges.length}건)
-${recentChanges.slice(0, 20).map(a => `- ${a.detail} (${a.actor_name || '시스템'})`).join('\n') || '활동 없음'}
+## ${period} ?쒕룞 (${recentChanges.length}嫄?
+${recentChanges.slice(0, 20).map(a => `- ${a.detail} (${a.actor_name || '?쒖뒪'}`).join('\n') || '?쒕룞 ?놁쓬'}
 
-## ${period} 완료 샷 (${completedShots.length}개)
-${completedShots.map(s => `- ${s.id} (${s.team}/${s.assignee})`).join('\n') || '없음'}`;
+## ${period} ?꾨즺 ??(${completedShots.length}媛?
+${completedShots.map(s => `- ${s.id} (${s.team}/${s.assignee})`).join('\n') || '?놁쓬'}`;
 
   const model = 'claude-sonnet-4-6-20250514';
   const systemPrompt = buildSystemPrompt(ctx, extraContext + `
 
-## ${type === 'daily' ? '일일' : '주간'} 보고서 작성
-다음 구조로 보고서를 작성하세요:
-1. **요약**: 한 줄 요약
-2. **${period} 성과**: 완료된 주요 작업
-3. **팀별 현황**: 각 팀의 진행 상태
-4. **주의 사항**: 마감 임박, 병목, 홀드 샷
-5. **내일/다음주 목표**: 우선순위 작업
+## ${type === 'daily' ? '?쇱씪' : '二쇨컙'} 蹂닿퀬???묒꽦
+?ㅼ쓬 援ъ“濡?蹂닿퀬?쒕? ?묒꽦?섏꽭??
+1. **?붿빟**: ??以??붿빟
+2. **${period} ?깃낵**: ?꾨즺??二쇱슂 ?묒뾽
+3. **?蹂??꾪솴**: 媛????吏꾪뻾 ?곹깭
+4. **二쇱쓽 ?ы빆**: 留덇컧 ?꾨컯, 蹂묐ぉ, ?????5. **?댁씪/?ㅼ쓬二?紐⑺몴**: ?곗꽑?쒖쐞 ?묒뾽
 
-마크다운 표를 적극 활용하세요.`);
+留덊겕?ㅼ슫 ?쒕? ?곴레 ?쒖슜?섏꽭??`);
 
   const result = await callClaude(env, model, systemPrompt,
-    `${type === 'daily' ? '일일' : '주간'} 프로덕션 보고서를 생성해주세요.`,
+    `${type === 'daily' ? '?쇱씪' : '二쇨컙'} ?꾨줈?뺤뀡 蹂닿퀬?쒕? ?앹꽦?댁＜?몄슂.`,
     2048
   );
 
-  // 캐시 저장
+  // 罹먯떆 ???
   await env.DB.prepare(
     'INSERT OR REPLACE INTO report_cache (id, project_id, report_type, content) VALUES (?, ?, ?, ?)'
   ).bind(cacheId, projectId, type, result.content[0].text).run();
@@ -1434,7 +1422,7 @@ ${completedShots.map(s => `- ${s.id} (${s.team}/${s.assignee})`).join('\n') || '
   return json({ reply: result.content[0].text, model, cached: false });
 }
 
-// POST /ai/suggest — 자동 할당 제안
+// POST /ai/suggest ???먮룞 ?좊떦 ?쒖븞
 async function aiSuggest(req, env, user) {
   const { project_id, shot_ids } = await req.json();
   const projectId = project_id || 'default';
@@ -1448,19 +1436,19 @@ async function aiSuggest(req, env, user) {
 
   const model = 'claude-haiku-4-5-20251001';
   const systemPrompt = buildSystemPrompt(ctx, `
-## 미할당 샷 (${unassigned.length}개)
-${unassigned.map(s => `- ${s.id} (${s.team}, 우선순위: ${s.priority})`).join('\n')}
+## 誘명븷????(${unassigned.length}媛?
+${unassigned.map(s => `- ${s.id} (${s.team}, ?곗꽑?쒖쐞: ${s.priority})`).join('\n')}
 
-담당자별 현재 워크로드를 고려하여 최적의 할당을 제안하세요.
-JSON 배열로 응답: [{"shot_id": "...", "assignee": "...", "reason": "..."}]`);
+?대떦?먮퀎 ?꾩옱 ?뚰겕濡쒕뱶瑜?怨좊젮?섏뿬 理쒖쟻???좊떦???쒖븞?섏꽭??
+JSON 諛곗뿴濡??묐떟: [{"shot_id": "...", "assignee": "...", "reason": "..."}]`);
 
-  const result = await callClaude(env, model, systemPrompt, '미할당 샷에 대한 담당자 할당을 제안해주세요.', 1024);
+  const result = await callClaude(env, model, systemPrompt, '誘명븷???룹뿉 ????대떦???좊떦???쒖븞?댁＜?몄슂.', 1024);
 
   await logAIUsage(env, user.id, '/ai/suggest', model, result.usage?.input_tokens, result.usage?.output_tokens);
   return json({ reply: result.content[0].text, model });
 }
 
-// POST /ai/summarize — 코멘트 요약
+// POST /ai/summarize ??肄붾찘???붿빟
 async function aiSummarize(req, env, user) {
   const { shot_id } = await req.json();
   if (!shot_id) return json({ error: 'shot_id required' }, 400);
@@ -1469,12 +1457,12 @@ async function aiSummarize(req, env, user) {
     'SELECT author_name, text, created_at FROM comments WHERE shot_id = ? ORDER BY created_at ASC'
   ).bind(shot_id).all();
 
-  if (!comments.length) return json({ reply: '코멘트가 없습니다.' });
+  if (!comments.length) return json({ reply: '肄붾찘?멸? ?놁뒿?덈떎.' });
 
   const model = 'claude-haiku-4-5-20251001';
   const result = await callClaude(env, model,
-    '애니메이션 프로덕션 코멘트를 요약하세요. 핵심 피드백, 수정 요청 사항, 해결/미해결 이슈를 구분하세요. 한국어로 답변.',
-    `샷 ${shot_id}의 코멘트 (${comments.length}개):\n${comments.map(c =>
+    '?좊땲硫붿씠???꾨줈?뺤뀡 肄붾찘?몃? ?붿빟?섏꽭?? ?듭떖 ?쇰뱶諛? ?섏젙 ?붿껌 ?ы빆, ?닿껐/誘명빐寃??댁뒋瑜?援щ텇?섏꽭?? ?쒓뎅?대줈 ?듬?.',
+    `??${shot_id}??肄붾찘??(${comments.length}媛?:\n${comments.map(c =>
       `[${new Date(c.created_at).toLocaleDateString()}] ${c.author_name}: ${c.text}`
     ).join('\n')}`,
     512
@@ -2309,7 +2297,7 @@ async function handleAPI(path, req, env) {
   if (path === '/api/notifications' && method === 'POST') return createNotification(req, env);
   if (path === '/api/notifications/read-all' && method === 'POST') return readAllNotifications(req, env);
 
-  // ===== NAS API (CF Tunnel → Synology File Station) =====
+  // ===== NAS API (CF Tunnel ??Synology File Station) =====
   if (path === '/api/nas/status' && method === 'GET') return nasStatus(env);
   if (path === '/api/nas/list' && method === 'GET') return nasList(req, env);
   if (path === '/api/nas/scan' && method === 'POST') return nasScan(req, env);
@@ -2333,7 +2321,7 @@ async function handleAPI(path, req, env) {
   return json({ error: 'Not found' }, 404);
 }
 
-// ===== Firebase Token Verification (JWK 방식) =====
+// ===== Firebase Token Verification (JWK 諛⑹떇) =====
 let _googleJwkCache = null;
 let _googleJwkCacheTime = 0;
 
@@ -2370,13 +2358,13 @@ async function verifyFirebaseToken(idToken, projectId) {
   const header = JSON.parse(base64UrlDecodeUtf8(parts[0]));
   const payload = JSON.parse(base64UrlDecodeUtf8(parts[1]));
 
-  // 기본 검증
+  // 湲곕낯 寃利?
   if (header.alg !== 'RS256') throw new Error('Invalid algorithm');
   if (payload.aud !== projectId) throw new Error('Invalid audience');
   if (payload.iss !== `https://securetoken.google.com/${projectId}`) throw new Error('Invalid issuer');
   if (payload.exp * 1000 < Date.now()) throw new Error('Token expired');
 
-  // JWK 공개키로 서명 검증
+  // JWK 怨듦컻?ㅻ줈 ?쒕챸 寃利?
   const keys = await getGoogleJwks();
   const jwk = keys[header.kid];
   if (!jwk) throw new Error('Key not found for kid: ' + header.kid);
@@ -2404,11 +2392,11 @@ async function firebaseVerify(req, env) {
     const normalizedEmail = String(email || '').toLowerCase();
     const ownerEmails = ['studiojun4347@gmail.com', 'lch4347@gmail.com'];
 
-    // D1에서 사용자 조회 (firebase_uid로)
+    // D1?먯꽌 ?ъ슜??議고쉶 (firebase_uid濡?
     let member = await env.DB.prepare('SELECT * FROM members WHERE firebase_uid = ?').bind(uid).first();
 
     if (!member) {
-      // 이메일로 조회 (기존 멤버 연결)
+      // ?대찓?쇰줈 議고쉶 (湲곗〈 硫ㅻ쾭 ?곌껐)
       member = await env.DB.prepare('SELECT * FROM members WHERE email = ?').bind(email).first();
       if (member) {
         await env.DB.prepare('UPDATE members SET firebase_uid = ? WHERE id = ?').bind(uid, member.id).run();
@@ -2421,14 +2409,14 @@ async function firebaseVerify(req, env) {
         ).bind(id, name, email, uid, 'admin', 'all', initials).run();
         member = { id, name, email, role: 'admin', team: 'all', initials };
       } else {
-        // 초대된 이메일인지 확인
+        // 珥덈????대찓?쇱씤吏 ?뺤씤
         await ensureInvitesTable(env);
         const invite = await env.DB.prepare(
           'SELECT * FROM invites WHERE email = ? AND used = 0'
         ).bind(email).first();
-        if (!invite) return json({ error: '초대되지 않은 이메일입니다. 관리자에게 초대를 요청하세요.' }, 403);
+        if (!invite) return json({ error: '珥덈??섏? ?딆? ?대찓?쇱엯?덈떎. 愿由ъ옄?먭쾶 珥덈?瑜??붿껌?섏꽭??' }, 403);
 
-        // 초대된 멤버 생성
+        // 珥덈???硫ㅻ쾭 ?앹꽦
         const id = 'MEM_' + Date.now().toString(36);
         const name = payload.name || email.split('@')[0];
         const role = invite.role || 'member';
@@ -2489,7 +2477,7 @@ async function createToken(req, env) {
     'INSERT INTO api_tokens (id, user_id, name, token_hash, permissions, expires_at) VALUES (?, ?, ?, ?, ?, ?)'
   ).bind(id, ownerId, name || 'API Token', hash, JSON.stringify(permissions || ['read', 'write', 'ai']), Date.now() + 365 * 24 * 60 * 60 * 1000).run();
 
-  return json({ id, token: tokenValue, name, owner_id: ownerId, message: '이 토큰을 안전하게 보관하세요. 다시 표시되지 않습니다.' }, 201);
+  return json({ id, token: tokenValue, name, owner_id: ownerId, message: '???좏겙???덉쟾?섍쾶 蹂닿??섏꽭?? ?ㅼ떆 ?쒖떆?섏? ?딆뒿?덈떎.' }, 201);
 }
 
 async function deleteToken(id, req, env) {
@@ -2514,7 +2502,7 @@ async function authenticateByApiToken(req, env) {
   if (!token) return null;
   if (token.expires_at && token.expires_at < Date.now()) return null;
 
-  // 마지막 사용 시간 업데이트
+  // 留덉?留??ъ슜 ?쒓컙 ?낅뜲?댄듃
   await env.DB.prepare('UPDATE api_tokens SET last_used_at = ? WHERE id = ?').bind(Date.now(), token.id).run();
 
   const member = await env.DB.prepare('SELECT id, name, role, team FROM members WHERE id = ?').bind(token.user_id).first();
@@ -2523,7 +2511,7 @@ async function authenticateByApiToken(req, env) {
   return member;
 }
 
-// JWT 또는 API 토큰으로 인증
+// JWT ?먮뒗 API ?좏겙?쇰줈 ?몄쬆
 async function authenticateAny(req, env) {
   const auth = req.headers.get('Authorization') || '';
   if (auth.startsWith('Bearer sj_')) return authenticateByApiToken(req, env);
@@ -2702,11 +2690,11 @@ async function createInvite(req, env) {
 
   // Check if already invited
   const existing = await env.DB.prepare('SELECT id FROM invites WHERE email = ? AND used = 0').bind(email).first();
-  if (existing) return json({ error: '이미 초대된 이메일입니다' }, 409);
+  if (existing) return json({ error: '?대? 珥덈????대찓?쇱엯?덈떎' }, 409);
 
   // Check if already a member
   const member = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind(email).first();
-  if (member) return json({ error: '이미 등록된 멤버입니다' }, 409);
+  if (member) return json({ error: '?대? ?깅줉??硫ㅻ쾭?낅땲?' }, 409);
 
   const id = 'INV_' + Date.now().toString(36);
   const invite_code = crypto.randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
@@ -2735,8 +2723,8 @@ async function verifyInviteCode(req, env) {
     'SELECT * FROM invites WHERE invite_code = ? AND used = 0'
   ).bind(code).first();
 
-  if (!invite) return json({ error: '유효하지 않은 초대 코드입니다' }, 404);
-  if (email && invite.email !== email) return json({ error: '초대된 이메일과 일치하지 않습니다' }, 403);
+  if (!invite) return json({ error: '?좏슚?섏? ?딆? 珥덈? 肄붾뱶?낅땲?' }, 404);
+  if (email && invite.email !== email) return json({ error: '珥덈????대찓?쇨낵 ?쇱튂?섏? ?딆뒿?덈떎' }, 403);
 
   return json({ valid: true, email: invite.email, role: invite.role, team: invite.team });
 }
@@ -2751,11 +2739,11 @@ async function markInviteUsed(env, code, userId) {
 async function login(req, env) {
   const { email, password } = await req.json();
   const member = await env.DB.prepare('SELECT * FROM members WHERE email = ?').bind(email).first();
-  if (!member) return json({ error: '이메일 또는 비밀번호가 올바르지 않습니다' }, 401);
-  if (!member.password_hash) return json({ error: 'Firebase 로그인을 사용하세요' }, 400);
+  if (!member) return json({ error: '?대찓???먮뒗 鍮꾨?踰덊샇媛 ?щ컮瑜댁? ?딆뒿?덈떎' }, 401);
+  if (!member.password_hash) return json({ error: 'Firebase 濡쒓렇?몄쓣 ?ъ슜?섏꽭?' }, 400);
 
   const valid = await verifyPassword(password, member.password_hash);
-  if (!valid) return json({ error: '이메일 또는 비밀번호가 올바르지 않습니다' }, 401);
+  if (!valid) return json({ error: '?대찓???먮뒗 鍮꾨?踰덊샇媛 ?щ컮瑜댁? ?딆뒿?덈떎' }, 401);
 
   const token = await createJWT({ id: member.id, role: member.role, team: member.team }, env.JWT_SECRET);
   return jsonWithCookie({ token, user: { id: member.id, name: member.name, role: member.role, team: member.team, initials: member.initials } }, token);
@@ -2763,19 +2751,19 @@ async function login(req, env) {
 
 async function register(req, env) {
   const { name, email, password, invite_code, initials } = await req.json();
-  if (!name || !email || !password) return json({ error: '필수 항목을 입력하세요' }, 400);
-  if (!invite_code) return json({ error: '초대 코드가 필요합니다' }, 400);
+  if (!name || !email || !password) return json({ error: '?꾩닔 ??ぉ???낅젰?섏꽭?' }, 400);
+  if (!invite_code) return json({ error: '珥덈? 肄붾뱶媛 ?꾩슂?⑸땲?' }, 400);
 
   // Verify invite code
   await ensureInvitesTable(env);
   const invite = await env.DB.prepare(
     'SELECT * FROM invites WHERE invite_code = ? AND used = 0'
   ).bind(invite_code).first();
-  if (!invite) return json({ error: '유효하지 않은 초대 코드입니다' }, 403);
-  if (invite.email !== email) return json({ error: '초대된 이메일과 일치하지 않습니다' }, 403);
+  if (!invite) return json({ error: '?좏슚?섏? ?딆? 珥덈? 肄붾뱶?낅땲?' }, 403);
+  if (invite.email !== email) return json({ error: '珥덈????대찓?쇨낵 ?쇱튂?섏? ?딆뒿?덈떎' }, 403);
 
   const existing = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind(email).first();
-  if (existing) return json({ error: '이미 등록된 이메일입니다' }, 409);
+  if (existing) return json({ error: '?대? ?깅줉???대찓?쇱엯?덈떎' }, 409);
 
   const id = 'MEM_' + Date.now().toString(36);
   const hash = await hashPassword(password);
@@ -2792,25 +2780,25 @@ async function register(req, env) {
   return jsonWithCookie({ token, user: { id, name, role, team, initials: initials || name.substring(0, 2) } }, token, 201);
 }
 
-// ===== 가입 승인 요청 (공개 — 인증 불필요) =====
+// ===== 媛???뱀씤 ?붿껌 (怨듦컻 ???몄쬆 遺덊븘?? =====
 async function requestAccess(req, env) {
   const { name, email, position, team, message } = await req.json();
-  if (!name || !email || !position) return json({ error: '이름, 이메일, 포지션을 모두 입력하세요' }, 400);
+  if (!name || !email || !position) return json({ error: '?대쫫, ?대찓?? ?ъ??섏쓣 紐⑤몢 ?낅젰?섏꽭?' }, 400);
 
-  // 이메일 형식 검증
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: '올바른 이메일 형식이 아닙니다' }, 400);
+  // ?대찓???뺤떇 寃利?
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: '?щ컮瑜??대찓???뺤떇???꾨떃?덈떎' }, 400);
 
-  // 이미 등록된 이메일 확인
+  // ?대? ?깅줉???대찓???뺤씤
   const existing = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind(email).first();
-  if (existing) return json({ error: '이미 등록된 이메일입니다' }, 409);
+  if (existing) return json({ error: '?대? ?깅줉???대찓?쇱엯?덈떎' }, 409);
 
-  // 중복 요청 확인
+  // 以묐났 ?붿껌 ?뺤씤
   const pending = await env.DB.prepare(
     "SELECT id FROM signup_requests WHERE email = ? AND status = 'pending'"
   ).bind(email).first();
-  if (pending) return json({ error: '이미 승인 대기 중인 요청이 있습니다' }, 409);
+  if (pending) return json({ error: '?대? ?뱀씤 ?湲?以묒씤 ?붿껌???덉뒿?덈떎' }, 409);
 
-  // signup_requests 테이블 생성
+  // signup_requests ?뚯씠釉??앹꽦
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS signup_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2830,7 +2818,7 @@ async function requestAccess(req, env) {
     'INSERT INTO signup_requests (name, email, position, team, message) VALUES (?, ?, ?, ?, ?)'
   ).bind(name, email, position, team || 'all', message || null).run();
 
-  // admin 이메일 알림 (MailChannels via CF Workers — 무료)
+  // admin ?대찓???뚮┝ (MailChannels via CF Workers ??臾대즺)
   try {
     await fetch('https://api.mailchannels.net/tx/v1/send', {
       method: 'POST',
@@ -2838,31 +2826,31 @@ async function requestAccess(req, env) {
       body: JSON.stringify({
         personalizations: [{ to: [{ email: 'studiojun4347@gmail.com', name: 'JUN' }] }],
         from: { email: 'noreply@studiojun.co.kr', name: 'STUDIOJUN System' },
-        subject: `[STUDIOJUN] 가입 승인 요청 — ${name} (${position})`,
+        subject: `[STUDIOJUN] 媛???뱀씤 ?붿껌 ??${name} (${position})`,
         content: [{
           type: 'text/html',
           value: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
-            <h2 style="color:#6366f1">새 가입 승인 요청</h2>
+            <h2 style="color:#6366f1">??媛???뱀씤 ?붿껌</h2>
             <table style="width:100%;border-collapse:collapse">
-              <tr><td style="padding:8px;color:#666;width:80px">이름</td><td style="padding:8px;font-weight:bold">${name}</td></tr>
-              <tr><td style="padding:8px;color:#666">이메일</td><td style="padding:8px">${email}</td></tr>
-              <tr><td style="padding:8px;color:#666">포지션</td><td style="padding:8px">${position}</td></tr>
-              <tr><td style="padding:8px;color:#666">팀</td><td style="padding:8px">${team || 'all'}</td></tr>
-              ${message ? `<tr><td style="padding:8px;color:#666">메시지</td><td style="padding:8px">${message}</td></tr>` : ''}
+              <tr><td style="padding:8px;color:#666;width:80px">?대쫫</td><td style="padding:8px;font-weight:bold">${name}</td></tr>
+              <tr><td style="padding:8px;color:#666">?대찓??/td><td style="padding:8px">${email}</td></tr>
+              <tr><td style="padding:8px;color:#666">?ъ???/td><td style="padding:8px">${position}</td></tr>
+              <tr><td style="padding:8px;color:#666">?</td><td style="padding:8px">${team || 'all'}</td></tr>
+              ${message ? `<tr><td style="padding:8px;color:#666">硫붿떆吏</td><td style="padding:8px">${message}</td></tr>` : ''}
             </table>
             <div style="margin-top:20px">
-              <a href="https://studiojun.co.kr" style="display:inline-block;background:#6366f1;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none">대시보드에서 승인하기</a>
+              <a href="https://studiojun.co.kr" style="display:inline-block;background:#6366f1;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none">??쒕낫?쒖뿉???뱀씤?섍린</a>
             </div>
           </div>`
         }]
       })
     });
-  } catch(e) { /* 이메일 실패해도 요청은 저장됨 */ }
+  } catch(e) { /* ?대찓???ㅽ뙣?대룄 ?붿껌? ??λ맖 */ }
 
-  return json({ success: true, message: '가입 요청이 전송되었습니다. 관리자 승인 후 이용 가능합니다.' }, 201);
+  return json({ success: true, message: '媛???붿껌???꾩넚?섏뿀?듬땲?? 愿由ъ옄 ?뱀씤 ???댁슜 媛?ν빀?덈떎.' }, 201);
 }
 
-// ===== 가입 승인/반려 처리 (admin 전용) =====
+// ===== 媛???뱀씤/諛섎젮 泥섎━ (admin ?꾩슜) =====
 async function handleSignupRequests(path, req, env) {
   const user = await authenticateAny(req, env);
   if (!user) return json({ error: 'Unauthorized' }, 401);
@@ -2870,7 +2858,7 @@ async function handleSignupRequests(path, req, env) {
 
   const method = req.method;
 
-  // GET /api/signup-requests — 목록
+  // GET /api/signup-requests ??紐⑸줉
   if (path === '/api/signup-requests' && method === 'GET') {
     const url = new URL(req.url);
     const status = url.searchParams.get('status') || 'pending';
@@ -2880,7 +2868,7 @@ async function handleSignupRequests(path, req, env) {
     return json({ success: true, requests: rows.results || [] });
   }
 
-  // PUT /api/signup-requests/:id — 승인 또는 반려
+  // PUT /api/signup-requests/:id ???뱀씤 ?먮뒗 諛섎젮
   const idMatch = path.match(/^\/api\/signup-requests\/(\d+)$/);
   if (idMatch && method === 'PUT') {
     const id = idMatch[1];
@@ -2889,10 +2877,10 @@ async function handleSignupRequests(path, req, env) {
 
     const row = await env.DB.prepare('SELECT * FROM signup_requests WHERE id = ?').bind(id).first();
     if (!row) return json({ error: 'Not found' }, 404);
-    if (row.status !== 'pending') return json({ error: '이미 처리된 요청입니다' }, 400);
+    if (row.status !== 'pending') return json({ error: '?대? 泥섎━???붿껌?낅땲?' }, 400);
 
     if (action === 'approve') {
-      // 멤버 자동 생성 (임시 비밀번호)
+      // 硫ㅻ쾭 ?먮룞 ?앹꽦 (?꾩떆 鍮꾨?踰덊샇)
       const tempPw = 'SJ' + Math.random().toString(36).slice(2, 10);
       const memberId = 'MEM_' + Date.now().toString(36);
       const hash = await hashPassword(tempPw);
@@ -2903,12 +2891,12 @@ async function handleSignupRequests(path, req, env) {
         'INSERT INTO members (id, name, email, password_hash, role, team, initials) VALUES (?, ?, ?, ?, ?, ?, ?)'
       ).bind(memberId, row.name, row.email, hash, role, team, row.name.substring(0, 2)).run();
 
-      // 승인 상태 업데이트
+      // ?뱀씤 ?곹깭 ?낅뜲?댄듃
       await env.DB.prepare(
         "UPDATE signup_requests SET status='approved', reviewer_comment=?, reviewed_at=datetime('now') WHERE id=?"
       ).bind(comment || null, id).run();
 
-      // 승인 이메일 발송 (임시 비밀번호 포함)
+      // ?뱀씤 ?대찓??諛쒖넚 (?꾩떆 鍮꾨?踰덊샇 ?ы븿)
       try {
         await fetch('https://api.mailchannels.net/tx/v1/send', {
           method: 'POST',
@@ -2916,33 +2904,33 @@ async function handleSignupRequests(path, req, env) {
           body: JSON.stringify({
             personalizations: [{ to: [{ email: row.email, name: row.name }] }],
             from: { email: 'noreply@studiojun.co.kr', name: 'STUDIOJUN' },
-            subject: '[STUDIOJUN] 가입이 승인되었습니다',
+            subject: '[STUDIOJUN] 媛?낆씠 ?뱀씤?섏뿀?듬땲',
             content: [{
               type: 'text/html',
               value: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
-                <h2 style="color:#22c55e">가입 승인 완료</h2>
-                <p>${row.name}님, STUDIOJUN 가입이 승인되었습니다.</p>
+                <h2 style="color:#22c55e">媛???뱀씤 ?꾨즺</h2>
+                <p>${row.name}?? STUDIOJUN 媛?낆씠 ?뱀씤?섏뿀?듬땲??</p>
                 <table style="width:100%;border-collapse:collapse">
-                  <tr><td style="padding:8px;color:#666">이메일</td><td style="padding:8px;font-weight:bold">${row.email}</td></tr>
-                  <tr><td style="padding:8px;color:#666">임시 비밀번호</td><td style="padding:8px;font-weight:bold;color:#ef4444">${tempPw}</td></tr>
-                  <tr><td style="padding:8px;color:#666">역할</td><td style="padding:8px">${role}</td></tr>
+                  <tr><td style="padding:8px;color:#666">?대찓??/td><td style="padding:8px;font-weight:bold">${row.email}</td></tr>
+                  <tr><td style="padding:8px;color:#666">?꾩떆 鍮꾨?踰덊샇</td><td style="padding:8px;font-weight:bold;color:#ef4444">${tempPw}</td></tr>
+                  <tr><td style="padding:8px;color:#666">??븷</td><td style="padding:8px">${role}</td></tr>
                 </table>
-                <p style="color:#666;margin-top:16px">첫 로그인 후 비밀번호를 변경해주세요.</p>
-                <a href="https://studiojun.co.kr" style="display:inline-block;background:#6366f1;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;margin-top:12px">로그인하기</a>
+                <p style="color:#666;margin-top:16px">泥?濡쒓렇????鍮꾨?踰덊샇瑜?蹂寃쏀빐二쇱꽭??</p>
+                <a href="https://studiojun.co.kr" style="display:inline-block;background:#6366f1;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;margin-top:12px">濡쒓렇?명븯湲?/a>
               </div>`
             }]
           })
         });
-      } catch(e) { /* 이메일 실패해도 계정은 생성됨 */ }
+      } catch(e) { /* ?대찓???ㅽ뙣?대룄 怨꾩젙? ?앹꽦??*/ }
 
       return json({ success: true, status: 'approved', member_id: memberId, temp_password: tempPw });
     } else {
-      // 반려
+      // 諛섎젮
       await env.DB.prepare(
         "UPDATE signup_requests SET status='rejected', reviewer_comment=?, reviewed_at=datetime('now') WHERE id=?"
       ).bind(comment || null, id).run();
 
-      // 반려 이메일
+      // 諛섎젮 ?대찓??
       try {
         await fetch('https://api.mailchannels.net/tx/v1/send', {
           method: 'POST',
@@ -2950,10 +2938,10 @@ async function handleSignupRequests(path, req, env) {
           body: JSON.stringify({
             personalizations: [{ to: [{ email: row.email, name: row.name }] }],
             from: { email: 'noreply@studiojun.co.kr', name: 'STUDIOJUN' },
-            subject: '[STUDIOJUN] 가입 요청 결과',
+            subject: '[STUDIOJUN] 媛???붿껌 寃곌낵',
             content: [{
               type: 'text/plain',
-              value: `${row.name}님, 가입 요청이 반려되었습니다.\n${comment ? '사유: ' + comment : '자세한 사항은 관리자에게 문의해주세요.'}`
+              value: `${row.name}?? 媛???붿껌??諛섎젮?섏뿀?듬땲??\n${comment ? '?ъ쑀: ' + comment : '?먯꽭???ы빆? 愿由ъ옄?먭쾶 臾몄쓽?댁＜?몄슂.'}`
             }]
           })
         });
@@ -2966,16 +2954,16 @@ async function handleSignupRequests(path, req, env) {
   return json({ error: 'Not found' }, 404);
 }
 
-// 포지션 → role 매핑
+// ?ъ?????role 留ㅽ븨
 function mapPositionToRole(position) {
   const p = (position || '').toLowerCase();
-  if (p.includes('감독') || p.includes('director') || p.includes('pd')) return 'pd';
-  if (p.includes('디자인') || p.includes('design')) return 'member';
-  if (p.includes('애니') || p.includes('anim')) return 'member';
-  if (p.includes('모델') || p.includes('model')) return 'member';
-  if (p.includes('렌더') || p.includes('comp') || p.includes('합성')) return 'member';
-  if (p.includes('fx') || p.includes('이펙트') || p.includes('effect')) return 'member';
-  if (p.includes('외주') || p.includes('vendor')) return 'vendor';
+  if (p.includes('媛먮룆') || p.includes('director') || p.includes('pd')) return 'pd';
+  if (p.includes('?붿옄') || p.includes('design')) return 'member';
+  if (p.includes('?좊땲') || p.includes('anim')) return 'member';
+  if (p.includes('紐⑤뜽') || p.includes('model')) return 'member';
+  if (p.includes('?뚮뜑') || p.includes('comp') || p.includes('?⑹꽦')) return 'member';
+  if (p.includes('fx') || p.includes('?댄럺') || p.includes('effect')) return 'member';
+  if (p.includes('?몄＜') || p.includes('vendor')) return 'vendor';
   return 'member';
 }
 
@@ -3051,7 +3039,7 @@ async function createShot(req, env) {
   await env.DB.prepare(
     'INSERT INTO shots (id, project_id, scene, team, status, priority, assignee, start_date, due, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(id, data.project_id || 'default', data.scene || '', data.team || '', data.status || 'pending', data.priority || 'mid', data.assignee || '', data.start_date || '', data.due || '', data.note || '').run();
-  await logActivity(env, data.project_id || 'default', data.assignee || '', 'shot_created', 'shot', id, `${id} 생성됨`);
+  await logActivity(env, data.project_id || 'default', data.assignee || '', 'shot_created', 'shot', id, `${id} ?앹꽦?`);
   return json({ id, ...data }, 201);
 }
 
@@ -3069,19 +3057,19 @@ async function updateShot(id, req, env) {
 
   const projectId = data.project_id || 'default';
   if (data.status) {
-    await logActivity(env, projectId, null, 'status_changed', 'shot', id, `${id} → ${data.status}`);
-    // Slack 자동 알림: 샷 상태 변경
+    await logActivity(env, projectId, null, 'status_changed', 'shot', id, `${id} ??${data.status}`);
+    // Slack ?먮룞 ?뚮┝: ???곹깭 蹂寃?
     sendSlackEvent(env, {
       project_id: projectId,
       event_type: 'production_update',
-      title: `샷 상태 변경: ${id}`,
-      body: `${id} → ${data.status}${data.team ? ` (${data.team})` : ''}${data.assignee ? ` 담당: ${data.assignee}` : ''}`,
+      title: `???곹깭 蹂寃? ${id}`,
+      body: `${id} ??${data.status}${data.team ? ` (${data.team})` : ''}${data.assignee ? ` ?대떦: ${data.assignee}` : ''}`,
     }).catch(() => {});
-    // 커맨드센터 봇 알림
-    notifyCommandCenter(env, `🎬 *샷 상태 변경* | \`${id}\` → *${data.status}*${data.team ? ` | ${data.team}` : ''}${data.assignee ? ` | 담당: ${data.assignee}` : ''}`).catch(() => {});
+    // 而ㅻ㎤?쒖꽱??遊??뚮┝
+    notifyCommandCenter(env, `?렗 *???곹깭 蹂寃? | \`${id}\` ??*${data.status}*${data.team ? ` | ${data.team}` : ''}${data.assignee ? ` | ?대떦: ${data.assignee}` : ''}`).catch(() => {});
   }
 
-  // Pipeline cascade: when shot status → 'done', auto-create next department's work
+  // Pipeline cascade: when shot status ??'done', auto-create next department's work
   if (data.status === 'done') {
     const shot = await env.DB.prepare('SELECT * FROM shots WHERE id = ?').bind(id).first();
     if (shot) {
@@ -3094,35 +3082,35 @@ async function updateShot(id, req, env) {
 }
 
 // ===== Pipeline Cascade System =====
-// When a department completes a shot (status → done), automatically create work for the next department
+// When a department completes a shot (status ??done), automatically create work for the next department
 const PIPELINE_ORDER = ['design', 'modeling', 'rigging', 'animation', 'render', 'fx'];
 const PIPELINE_TASKS = {
   design: {
     next: 'modeling',
-    todoTitle: (scene) => `[모델링] ${scene} — 디자인 완료, 모델링 시작`,
+    todoTitle: (scene) => `[紐⑤뜽留? ${scene} ???붿옄???꾨즺, 紐⑤뜽留??쒖옉`,
     shotStatus: 'pending'
   },
   modeling: {
     next: 'rigging',
-    todoTitle: (scene) => `[리깅] ${scene} — 모델링 완료, 리깅 시작`,
+    todoTitle: (scene) => `[由ш퉭] ${scene} ??紐⑤뜽留??꾨즺, 由ш퉭 ?쒖옉`,
     shotStatus: 'pending'
   },
   rigging: {
     next: 'animation',
-    todoTitle: (scene) => `[애니메이션] ${scene} — 리깅 완료, 에셋 다운로드 후 애니메이션 시작`,
+    todoTitle: (scene) => `[?좊땲硫붿씠?? ${scene} ??由ш퉭 ?꾨즺, ?먯뀑 ?ㅼ슫濡쒕뱶 ???좊땲硫붿씠???쒖옉`,
     shotStatus: 'pending'
   },
   animation: {
     next: 'render',
-    todoTitle: (scene) => `[렌더] ${scene} — 애니메이션 완료(Playblast), AI 렌더 대기`,
+    todoTitle: (scene) => `[?뚮뜑] ${scene} ???좊땲硫붿씠???꾨즺(Playblast), AI ?뚮뜑 ?湲`,
     shotStatus: 'confirm'  // render team reviews before rendering
   },
   render: {
     next: 'fx',
-    todoTitle: (scene) => `[FX] ${scene} — 렌더 완료, 이펙트/합성 시작`,
+    todoTitle: (scene) => `[FX] ${scene} ???뚮뜑 ?꾨즺, ?댄럺???⑹꽦 ?쒖옉`,
     shotStatus: 'pending'
   }
-  // fx is the final stage — no cascade after
+  // fx is the final stage ??no cascade after
 };
 
 async function pipelineCascade(env, shot, projectId) {
@@ -3146,7 +3134,7 @@ async function pipelineCascade(env, shot, projectId) {
   ).bind(
     todoId, projectId, config.todoTitle(scene), nextTeam,
     shot.priority || 'mid', '', shot.due || '',
-    shot.id, `자동 생성: ${currentTeam} 완료 → ${nextTeam} 파이프라인`, 'todo'
+    shot.id, `?먮룞 ?앹꽦: ${currentTeam} ?꾨즺 ??${nextTeam} ?뚯씠?꾨씪`, 'todo'
   ).run();
 
   // 2. Create or update shot for next department
@@ -3161,7 +3149,7 @@ async function pipelineCascade(env, shot, projectId) {
     nextShotId = existingShot.id;
     await env.DB.prepare(
       'UPDATE shots SET status = ?, updated_at = ?, note = ? WHERE id = ?'
-    ).bind(config.shotStatus, Date.now(), `${currentTeam} 완료 — 작업 가능`, nextShotId).run();
+    ).bind(config.shotStatus, Date.now(), `${currentTeam} ?꾨즺 ???묒뾽 媛?`, nextShotId).run();
   } else {
     // Create new shot for next department
     nextShotId = `${scene}_${nextTeam}`.replace(/\s+/g, '_');
@@ -3170,20 +3158,20 @@ async function pipelineCascade(env, shot, projectId) {
     ).bind(
       nextShotId, projectId, scene, nextTeam, config.shotStatus,
       shot.priority || 'mid', '', '', shot.due || '',
-      `파이프라인: ${currentTeam} → ${nextTeam} 자동 생성`
+      `?뚯씠?꾨씪?? ${currentTeam} ??${nextTeam} ?먮룞 ?앹꽦`
     ).run();
   }
 
   // 3. Log the cascade
   await logActivity(env, projectId, 'pipeline', 'cascade', 'shot', shot.id,
-    `${currentTeam} 완료 → ${nextTeam} 자동 생성 (todo: ${todoId}, shot: ${nextShotId})`);
+    `${currentTeam} ?꾨즺 ??${nextTeam} ?먮룞 ?앹꽦 (todo: ${todoId}, shot: ${nextShotId})`);
 
-  // Slack 자동 알림: 파이프라인 캐스케이드
+  // Slack ?먮룞 ?뚮┝: ?뚯씠?꾨씪??罹먯뒪耳?대뱶
   sendSlackEvent(env, {
     project_id: projectId,
     event_type: 'production_update',
-    title: `파이프라인 캐스케이드: ${currentTeam} → ${nextTeam}`,
-    body: `${scene} 완료 → ${nextTeam} 자동 생성\nTodo: ${todoId} | Shot: ${nextShotId}`,
+    title: `?뚯씠?꾨씪??罹먯뒪耳?대뱶: ${currentTeam} ??${nextTeam}`,
+    body: `${scene} ?꾨즺 ??${nextTeam} ?먮룞 ?앹꽦\nTodo: ${todoId} | Shot: ${nextShotId}`,
   }).catch(() => {});
 
   return {
@@ -3246,7 +3234,7 @@ async function createAsset(req, env) {
   const id = data.id || ('ASSET_' + Date.now().toString(36));
   await env.DB.prepare(
     'INSERT INTO assets (id, project_id, name, type, emoji, version, status, team, assignee, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(id, data.project_id || 'default', data.name || '', data.type || '', data.emoji || '📦', data.version || 'v01', data.status || 'pending', data.team || '', data.assignee || '', data.note || '').run();
+  ).bind(id, data.project_id || 'default', data.name || '', data.type || '', data.emoji || '?벀', data.version || 'v01', data.status || 'pending', data.team || '', data.assignee || '', data.note || '').run();
   return json({ id, ...data }, 201);
 }
 
@@ -3292,13 +3280,13 @@ async function createTodo(req, env) {
     'INSERT INTO todos (id, project_id, title, team, priority, assignee, due, shot_id, note, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(id, data.project_id || 'default', data.title || '', data.team || '', data.priority || 'mid', data.assignee || '', data.due || '', data.shot_id || data.shot || '', data.note || '', data.status || 'todo').run();
 
-  // Slack 자동 알림: 새 할일 생성
+  // Slack ?먮룞 ?뚮┝: ???좎씪 ?앹꽦
   if (data.title) {
     sendSlackEvent(env, {
       project_id: data.project_id || 'default',
       event_type: 'production_update',
-      title: `새 할일: ${data.title}`,
-      body: `팀: ${data.team || '-'} | 담당: ${data.assignee || '-'} | 우선순위: ${data.priority || 'mid'}${data.shot_id ? ` | Shot: ${data.shot_id}` : ''}`,
+      title: `???좎씪: ${data.title}`,
+      body: `?: ${data.team || '-'} | ?대떦: ${data.assignee || '-'} | ?곗꽑?쒖쐞: ${data.priority || 'mid'}${data.shot_id ? ` | Shot: ${data.shot_id}` : ''}`,
     }).catch(() => {});
   }
 
@@ -3318,16 +3306,16 @@ async function updateTodo(id, req, env) {
   fields.push('updated_at = ?'); vals.push(Date.now()); vals.push(id);
   await env.DB.prepare(`UPDATE todos SET ${fields.join(', ')} WHERE id = ?`).bind(...vals).run();
 
-  // Slack 자동 알림: 할일 상태 변경
+  // Slack ?먮룞 ?뚮┝: ?좎씪 ?곹깭 蹂寃?
   if (data.status) {
     sendSlackEvent(env, {
       project_id: data.project_id || 'default',
       event_type: 'production_update',
-      title: `할일 ${data.status === 'done' ? '완료' : '변경'}: ${id}`,
-      body: `${data.title || id} → ${data.status}${data.team ? ` (${data.team})` : ''}`,
+      title: `?좎씪 ${data.status === 'done' ? '?꾨즺' : '蹂寃'}: ${id}`,
+      body: `${data.title || id} ??${data.status}${data.team ? ` (${data.team})` : ''}`,
     }).catch(() => {});
-    const emoji = data.status === 'done' ? '✅' : data.status === 'in_progress' ? '🔄' : '📋';
-    notifyCommandCenter(env, `${emoji} *할일 ${data.status === 'done' ? '완료' : '상태변경'}* | \`${data.title || id}\` → *${data.status}*${data.team ? ` | ${data.team}` : ''}`).catch(() => {});
+    const emoji = data.status === 'done' ? '\u2705' : data.status === 'in_progress' ? '\u23f3' : '\u26a0\ufe0f';
+    notifyCommandCenter(env, `${emoji} *?좎씪 ${data.status === 'done' ? '?꾨즺' : '?곹깭蹂寃'}* | \`${data.title || id}\` ??*${data.status}*${data.team ? ` | ${data.team}` : ''}`).catch(() => {});
   }
 
   return json({ id, ...data });
@@ -3399,7 +3387,7 @@ async function getProjects(env) {
 async function getProject(id, env) {
   const project = await env.DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first();
   if (!project) return json({ error: 'Project not found' }, 404);
-  // 팀별 진행률 계산
+  // ?蹂?吏꾪뻾瑜?怨꾩궛
   const { results: teamStats } = await env.DB.prepare(
     "SELECT team, COUNT(*) as total, SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done FROM shots WHERE project_id = ? GROUP BY team"
   ).bind(id).all();
@@ -3422,7 +3410,7 @@ async function getProject(id, env) {
 async function getTBODashboard(env) {
   const pid = 'prj_tbo_s1';
 
-  // 에피소드별 샷 현황
+  // ?먰뵾?뚮뱶蹂????꾪솴
   const { results: epStats } = await env.DB.prepare(`
     SELECT substr(shot_code, 4, 5) as ep,
       COUNT(*) as total,
@@ -3436,7 +3424,7 @@ async function getTBODashboard(env) {
     GROUP BY ep ORDER BY ep
   `).bind(pid).all();
 
-  // 에셋 파이프라인
+  // ?먯뀑 ?뚯씠?꾨씪??
   const { results: assetStats } = await env.DB.prepare(`
     SELECT category as asset_type, COUNT(*) as total,
       SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) as done,
@@ -3444,7 +3432,7 @@ async function getTBODashboard(env) {
     FROM assets WHERE project_id=? GROUP BY category
   `).bind(pid).all();
 
-  // 전체 요약
+  // ?꾩껜 ?붿빟
   const totals = epStats.reduce((a, e) => ({
     shots: a.shots + e.total,
     done: a.done + e.done,
@@ -3637,7 +3625,7 @@ async function loadState(req, env) {
     env.DB.prepare('SELECT * FROM activity_log WHERE project_id = ? ORDER BY created_at DESC LIMIT 20').bind(projectId).all()
   ]);
 
-  // 배치 쿼리: 모든 샷의 댓글을 한 번에 조회 (개별 쿼리 3983회 → 1회)
+  // 諛곗튂 荑쇰━: 紐⑤뱺 ?룹쓽 ?볤?????踰덉뿉 議고쉶 (媛쒕퀎 荑쇰━ 3983????1??
   const shotIds = shots.results.map(s => s.id);
   const commentsMap = {};
   if (shotIds.length > 0) {
@@ -3666,7 +3654,7 @@ async function loadState(req, env) {
     }));
   }
 
-  const project = projects.results[0] || { name: '터보원 S01', episode_range: 'EP01-26', deadline: '2025-12-31' };
+  const project = projects.results[0] || { name: '?곕낫??S01', episode_range: 'EP01-26', deadline: '2025-12-31' };
 
   return json({
     shots: shots.results.map(s => ({
@@ -3680,7 +3668,7 @@ async function loadState(req, env) {
       createdAt: s.created_at
     })),
     assets: assets.results.map(a => ({
-      id: a.id, name: a.name, type: a.type || 'character', emoji: a.emoji || '📦',
+      id: a.id, name: a.name, type: a.type || 'character', emoji: a.emoji || '?벀',
       version: a.version || 'v01', status: a.status || 'pending',
       team: a.team || '', assignee: a.assignee || '', note: a.note || '', createdAt: a.created_at
     })),
@@ -3701,8 +3689,8 @@ async function loadState(req, env) {
       read: n.is_read === 1, type: 'info'
     })),
     project: {
-      id: project.id, name: project.name || '터보원 S01',
-      meta: (project.episode_range || 'EP01-26') + ' · 2025 Q3',
+      id: project.id, name: project.name || '?곕낫??S01',
+      meta: (project.episode_range || 'EP01-26') + ' 쨌 2025 Q3',
       deadline: project.deadline || '2025-12-31', epCount: project.ep_count || 26
     }
   });
@@ -3942,7 +3930,7 @@ async function postSlackWebhook(env, payload, channel) {
   return { ok: response.ok, status: response.status, response_text: responseText };
 }
 
-// 커맨드센터에 봇으로 CRUD 알림 전송
+// 而ㅻ㎤?쒖꽱?곗뿉 遊뉗쑝濡?CRUD ?뚮┝ ?꾩넚
 async function notifyCommandCenter(env, text) {
   try {
     const token = await getSlackConfigValue(env, 'SLACK_BOT_TOKEN_GREEN');
@@ -4053,30 +4041,30 @@ async function handleSlackAPI(path, request, env) {
 }
 
 // ===== Slack Events API Webhook Handler =====
-// POST /api/slack/webhook — Handles Slack Events API (no JWT, verified by signing secret)
+// POST /api/slack/webhook ??Handles Slack Events API (no JWT, verified by signing secret)
 const JUN_COMMAND_CENTER_ID = 'C0B471SGV8D';
 const SLACK_AGENTS = {
   GREEN: {
-    name: 'Dispatch', tokenKey: 'SLACK_CLAUDE_TOKEN', role: 'Producer/QA/프론트엔드 총괄', emoji: ':large_green_circle:',
+    name: 'Dispatch', tokenKey: 'SLACK_CLAUDE_TOKEN', role: 'Producer/QA/?꾨줎?몄뿏??珥앷큵', emoji: ':large_green_circle:',
     llm: { provider: 'anthropic', model: 'claude-sonnet-4-20250514', apiKeyEnv: 'ANTHROPIC_API_KEY', maxTokens: 4096 },
   },
   RED: {
-    name: 'Codex', tokenKey: 'SLACK_CODEX_TOKEN', role: '백엔드/인프라/배포 자동화', emoji: ':red_circle:',
+    name: 'Codex', tokenKey: 'SLACK_CODEX_TOKEN', role: 'Backend/Deploy/Code', emoji: ':red_circle:',
     llm: { provider: 'openai', model: 'o3', apiKeyEnv: 'OPENAI_API_KEY', maxTokens: 4096 },
   },
   BLUE: {
-    name: 'Gemini', tokenKey: 'SLACK_GEMINI_TOKEN', role: 'Google생태계/데이터정제/번역', emoji: ':large_blue_circle:',
+    name: 'Gemini', tokenKey: 'SLACK_GEMINI_TOKEN', role: 'Google?앺깭怨??곗씠?곗젙??踰덉뿭', emoji: ':large_blue_circle:',
     llm: { provider: 'google', model: 'gemini-2.5-pro', apiKeyEnv: 'GOOGLE_AI_API_KEY', maxTokens: 4096 },
   },
 };
 
 function routeToAgent(text) {
   const lower = (text || '').toLowerCase();
-  if (lower.includes('@dispatch') || lower.includes('@green') || lower.includes('디스패치')) return 'GREEN';
-  if (lower.includes('@codex') || lower.includes('@red') || lower.includes('코덱스')) return 'RED';
-  if (lower.includes('@gemini') || lower.includes('@blue') || lower.includes('제미니')) return 'BLUE';
-  if (lower.includes('배포') || lower.includes('deploy') || lower.includes('worker') || lower.includes('빌드') || lower.includes('linear') || lower.includes('코드') || lower.includes('pr')) return 'RED';
-  if (lower.includes('시트') || lower.includes('sheet') || lower.includes('번역') || lower.includes('translate') || lower.includes('구글') || lower.includes('동기화') || lower.includes('sync')) return 'BLUE';
+  if (lower.includes('@dispatch') || lower.includes('@green') || lower.includes('?붿뒪?⑥튂')) return 'GREEN';
+  if (lower.includes('@codex') || lower.includes('@red') || lower.includes('肄붾뜳')) return 'RED';
+  if (lower.includes('@gemini') || lower.includes('@blue') || lower.includes('?쒕?')) return 'BLUE';
+  if (lower.includes('諛고룷') || lower.includes('deploy') || lower.includes('worker') || lower.includes('鍮뚮뱶') || lower.includes('linear') || lower.includes('肄붾뱶') || lower.includes('pr')) return 'RED';
+  if (lower.includes('?쒗듃') || lower.includes('sheet') || lower.includes('踰덉뿭') || lower.includes('translate') || lower.includes('援ш?') || lower.includes('?숆린') || lower.includes('sync')) return 'BLUE';
   return 'GREEN';
 }
 
@@ -4128,7 +4116,7 @@ async function handleSlackWebhook(request, env, ctx) {
   if (payload.type === 'event_callback') {
     const event = payload.event;
 
-    // 1. 커맨드센터 메시지 → 3-agent 라우팅
+    // 1. 而ㅻ㎤?쒖꽱??硫붿떆吏 ??3-agent ?쇱슦??
     if (event?.type === 'message' && event.channel === JUN_COMMAND_CENTER_ID) {
       if (event.bot_id || event.subtype === 'bot_message') return json({ ok: true, skipped: 'bot_message' });
       if (event.subtype && event.subtype !== 'file_share') return json({ ok: true, skipped: event.subtype });
@@ -4136,7 +4124,7 @@ async function handleSlackWebhook(request, env, ctx) {
       return json({ ok: true, event_id: payload.event_id });
     }
 
-    // 2. 다른 채널 메시지 → D1 로깅 + 봇 멘션 응답
+    // 2. ?ㅻⅨ 梨꾨꼸 硫붿떆吏 ??D1 濡쒓퉭 + 遊?硫섏뀡 ?묐떟
     if (event?.type === 'message') {
       if (event.bot_id || event.subtype === 'bot_message') return json({ ok: true, skipped: 'bot_message' });
       if (event.text && /@(dispatch|codex|gemini|green|red|blue)/i.test(event.text)) {
@@ -4145,19 +4133,19 @@ async function handleSlackWebhook(request, env, ctx) {
       return json({ ok: true, event_id: payload.event_id, channel: event.channel });
     }
 
-    // 3. reaction_added → 리뷰 승인/리젝 자동 처리
+    // 3. reaction_added ??由щ럭 ?뱀씤/由ъ젥 ?먮룞 泥섎━
     if (event?.type === 'reaction_added') {
       ctx.waitUntil(processReactionEvent(env, event, payload.event_id).catch(e => console.error('[SLACK-WEBHOOK] Reaction error:', e.message)));
       return json({ ok: true, event_id: payload.event_id });
     }
 
-    // 4. file_shared → 에셋 업로드 알림
+    // 4. file_shared ???먯뀑 ?낅줈???뚮┝
     if (event?.type === 'file_shared') {
-      ctx.waitUntil(logSlackEvent(env, 'file_shared', `파일 공유: ${event.file_id || 'unknown'}`, event.channel_id || ''));
+      ctx.waitUntil(logSlackEvent(env, 'file_shared', `?뚯씪 怨듭쑀: ${event.file_id || 'unknown'}`, event.channel_id || ''));
       return json({ ok: true, event_id: payload.event_id });
     }
 
-    // 5. 기타 이벤트 로깅
+    // 5. 湲고? ?대깽??濡쒓퉭
     ctx.waitUntil(logSlackEvent(env, event?.type || 'unknown', `Event: ${event?.type}`, JSON.stringify(event || {}).slice(0, 500)));
     return json({ ok: true, event_type: event?.type });
   }
@@ -4169,24 +4157,24 @@ async function processCommandCenterMessage(env, event, eventId) {
   const userId = event.user;
   const threadTs = event.thread_ts || event.ts;
 
-  // 도움말 커맨드
+  // ?꾩?留?而ㅻ㎤??
   const lower = text.toLowerCase().trim();
-  if (lower === '도움말' || lower === 'help' || lower === '?') {
+  if (lower === '?꾩?留' || lower === 'help' || lower === '?') {
     const greenToken = await getSlackConfigValue(env, 'SLACK_BOT_TOKEN_GREEN');
     if (greenToken) {
-      const helpText = `🤖 *STUDIOJUN AI 봇 가이드*\n\n` +
-        `🟢 *GREEN* (프론트/QA/프로덕션)\n• 샷 진행률, 에피소드 현황, 리뷰 상태 질문\n• 예: "EP01 진행률 알려줘", "현재 프로젝트 현황"\n\n` +
-        `🔴 *RED* (백엔드/배포/코드)\n• Worker 배포, 코드 이슈, 시스템 상태\n• 예: "@codex 배포 상태", "worker 버전 확인"\n\n` +
-        `🔵 *BLUE* (구글시트/번역/동기화)\n• 시트 데이터, 번역, 동기화 상태\n• 예: "@gemini 시트 동기화 확인", "에피소드 목록"\n\n` +
-        `⚡ *자동 기능*\n• 샷/할일 상태 변경 → 자동 알림\n• ✅ 리액션 → 리뷰 승인 | 🔄 → 리테이크\n• 매일 오전/오후 자동 브리핑\n\n` +
-        `💡 아무 질문이나 자유롭게 해보세요!`;
+      const helpText = `?쨼 *STUDIOJUN AI 遊?媛?대뱶*\n\n` +
+        `?윟 *GREEN* (?꾨줎??QA/?꾨줈?뺤뀡)\n????吏꾪뻾瑜? ?먰뵾?뚮뱶 ?꾪솴, 由щ럭 ?곹깭 吏덈Ц\n???? "EP01 吏꾪뻾瑜??뚮젮以?, "?꾩옱 ?꾨줈?앺듃 ?꾪솴"\n\n` +
+        `?뵶 *RED* (諛깆뿏??諛고룷/肄붾뱶)\n??Worker 諛고룷, 肄붾뱶 ?댁뒋, ?쒖뒪???곹깭\n???? "@codex 諛고룷 ?곹깭", "worker 踰꾩쟾 ?뺤씤"\n\n` +
+        `?뵷 *BLUE* (援ш??쒗듃/踰덉뿭/?숆린??\n???쒗듃 ?곗씠?? 踰덉뿭, ?숆린???곹깭\n???? "@gemini ?쒗듃 ?숆린???뺤씤", "?먰뵾?뚮뱶 紐⑸줉"\n\n` +
+        `??*?먮룞 湲곕뒫*\n?????좎씪 ?곹깭 蹂寃????먮룞 ?뚮┝\n????由ъ븸????由щ럭 ?뱀씤 | ?봽 ??由ы뀒?댄겕\n??留ㅼ씪 ?ㅼ쟾/?ㅽ썑 ?먮룞 釉뚮━??n\n` +
+        `?뮕 ?꾨Т 吏덈Ц?대굹 ?먯쑀濡?쾶 ?대낫?몄슂!`;
       await postSlackBotMessage(greenToken, { channel: JUN_COMMAND_CENTER_ID, thread_ts: threadTs, text: helpText, unfurl_links: false });
     }
     return;
   }
 
-  // 브레인스토밍 모드: 3봇이 순차적으로 각자 관점에서 의견 제시
-  const brainMatch = text.match(/^(브레인스토밍|brainstorm|기획회의|회의)\s*[:：]?\s*(.+)/i);
+  // 釉뚮젅?몄뒪?좊컢 紐⑤뱶: 3遊뉗씠 ?쒖감?곸쑝濡?媛곸옄 愿?먯뿉???섍껄 ?쒖떆
+  const brainMatch = text.match(/^(brainstorm|meeting)\s*[:?]?\s*(.+)/i);
   if (brainMatch) {
     const topic = brainMatch[2].trim();
     await brainstormSession(env, topic, userId, threadTs, eventId);
@@ -4208,7 +4196,7 @@ async function processCommandCenterMessage(env, event, eventId) {
   // Generate response
   let responseText;
   try { responseText = await generateSlackAgentResponse(env, agent, text, userId); }
-  catch (e) { responseText = `[${agent.name}] 처리 중 오류: ${e.message}`; }
+  catch (e) { responseText = `[${agent.name}] 泥섎━ 以??ㅻ쪟: ${e.message}`; }
 
   // Post as bot
   await postSlackBotMessage(token, { channel: JUN_COMMAND_CENTER_ID, thread_ts: threadTs, text: responseText, unfurl_links: false });
@@ -4220,7 +4208,7 @@ async function processCommandCenterMessage(env, event, eventId) {
       .run();
   } catch (e) { console.error('[SLACK-WEBHOOK] Response log err:', e.message); }
 
-  // Chain relay: 봇 응답에서 @멘션 감지 → 해당 봇 자동 호출
+  // Chain relay: 遊??묐떟?먯꽌 @硫섏뀡 媛먯? ???대떦 遊??먮룞 ?몄텧
   const mentionMap = { '@green': 'GREEN', '@red': 'RED', '@blue': 'BLUE' };
   const lowerResp = (responseText || '').toLowerCase();
   for (const [mention, targetKey] of Object.entries(mentionMap)) {
@@ -4229,10 +4217,10 @@ async function processCommandCenterMessage(env, event, eventId) {
         const targetAgent = SLACK_AGENTS[targetKey];
         const targetToken = await getSlackConfigValue(env, targetAgent.tokenKey);
         if (!targetToken) continue;
-        const chainPrompt = `[${agent.name}이(가) 위임] 원본 질문: ${text}\n${agent.name} 답변 요약: ${responseText.slice(0, 300)}`;
+        const chainPrompt = `[${agent.name}??媛) ?꾩엫] ?먮낯 吏덈Ц: ${text}\n${agent.name} ?듬? ?붿빟: ${responseText.slice(0, 300)}`;
         const chainResp = await generateSlackAgentResponse(env, targetAgent, chainPrompt, userId);
         await postSlackBotMessage(targetToken, { channel: JUN_COMMAND_CENTER_ID, thread_ts: threadTs, text: chainResp, unfurl_links: false });
-        await logSlackEvent(env, 'chain_relay', `${agent.name}→${targetAgent.name} 위임`, `trigger:${mention} thread:${threadTs}`);
+        await logSlackEvent(env, 'chain_relay', `${agent.name}??{targetAgent.name} ?꾩엫`, `trigger:${mention} thread:${threadTs}`);
       } catch (e) { console.error(`[SLACK] Chain relay ${targetKey} err:`, e.message); }
     }
   }
@@ -4240,34 +4228,34 @@ async function processCommandCenterMessage(env, event, eventId) {
 
 async function brainstormSession(env, topic, userId, threadTs, eventId) {
   const perspectives = {
-    GREEN: `UX/프론트엔드/QA 관점에서 분석. 사용자 경험, UI 구조, 페이지 흐름, QA 체크포인트 제안. 150단어 이내.`,
-    RED: `백엔드/API/인프라 관점에서 분석. API 엔드포인트, DB 스키마, Worker 라우트, 기술 구현 방안 제안. 150단어 이내.`,
-    BLUE: `데이터/구글시트/워크플로우 관점에서 분석. 데이터 구조, 시트 연동, 자동화 파이프라인 제안. 150단어 이내.`
+    GREEN: `UX/?꾨줎?몄뿏??QA 愿?먯뿉??遺꾩꽍. ?ъ슜??寃쏀뿕, UI 援ъ“, ?섏씠吏 ?먮쫫, QA 泥댄겕?ъ씤???쒖븞. 150?⑥뼱 ?대궡.`,
+    RED: `諛깆뿏??API/?명봽??愿?먯뿉??遺꾩꽍. API ?붾뱶?ъ씤?? DB ?ㅽ궎留? Worker ?쇱슦?? 湲곗닠 援ы쁽 諛⑹븞 ?쒖븞. 150?⑥뼱 ?대궡.`,
+    BLUE: `?곗씠??援ш??쒗듃/?뚰겕?뚮줈??愿?먯뿉??遺꾩꽍. ?곗씠??援ъ“, ?쒗듃 ?곕룞, ?먮룞???뚯씠?꾨씪???쒖븞. 150?⑥뼱 ?대궡.`
   };
 
-  // 시작 알림
+  // ?쒖옉 ?뚮┝
   const greenToken = await getSlackConfigValue(env, 'SLACK_BOT_TOKEN_GREEN');
   if (greenToken) {
     await postSlackBotMessage(greenToken, {
       channel: JUN_COMMAND_CENTER_ID, thread_ts: threadTs,
-      text: `🧠 *브레인스토밍 시작* | 주제: *${topic}*\n3봇이 동시에 분석 중...`,
+      text: `?쭬 *釉뚮젅?몄뒪?좊컢 ?쒖옉* | 二쇱젣: *${topic}*\n3遊뉗씠 ?숈떆??遺꾩꽍 以?..`,
       unfurl_links: false
     });
   }
 
-  // Phase 1: 3봇 병렬 호출 (타임아웃 방지)
+  // Phase 1: 3遊?蹂묐젹 ?몄텧 (??꾩븘??諛⑹?)
   const results = {};
   const promises = Object.entries(perspectives).map(async ([agentKey, perspective]) => {
     const agent = SLACK_AGENTS[agentKey];
     const token = await getSlackConfigValue(env, agent.tokenKey);
-    if (!token) { results[agentKey] = `[${agent.name}] 토큰 미설정`; return; }
+    if (!token) { results[agentKey] = `[${agent.name}] ?좏겙 誘몄꽕`; return; }
 
-    const prompt = `[브레인스토밍] 주제: ${topic}\n\n${perspective}`;
+    const prompt = `[釉뚮젅?몄뒪?좊컢] 二쇱젣: ${topic}\n\n${perspective}`;
     let response;
     try {
       response = await generateSlackAgentResponse(env, agent, prompt, userId);
     } catch (e) {
-      response = `[${agent.name}] 응답 오류: ${e.message}`;
+      response = `[${agent.name}] ?묐떟 ?ㅻ쪟: ${e.message}`;
     }
     results[agentKey] = response;
 
@@ -4279,54 +4267,54 @@ async function brainstormSession(env, topic, userId, threadTs, eventId) {
 
   await Promise.all(promises);
 
-  // Phase 2: GREEN이 종합 정리
+  // Phase 2: GREEN??醫낇빀 ?뺣━
   if (greenToken) {
     const allResponses = Object.entries(results).map(([k, v]) => `[${k}]: ${v.slice(0, 300)}`).join('\n');
-    const summaryPrompt = `[브레인스토밍 종합] 주제: ${topic}\n\n3봇 의견:\n${allResponses}\n\n종합하여 액션 플랜 작성:\n1. 우선순위 높은 작업 3개\n2. 즉시 시작 가능한 것\n3. 예상 일정\n100단어 이내.`;
+    const summaryPrompt = `[釉뚮젅?몄뒪?좊컢 醫낇빀] 二쇱젣: ${topic}\n\n3遊??섍껄:\n${allResponses}\n\n醫낇빀?섏뿬 ?≪뀡 ?뚮옖 ?묒꽦:\n1. ?곗꽑?쒖쐞 ?믪? ?묒뾽 3媛?n2. 利됱떆 ?쒖옉 媛?ν븳 寃?n3. ?덉긽 ?쇱젙\n100?⑥뼱 ?대궡.`;
 
     let summary;
     try {
       summary = await generateSlackAgentResponse(env, SLACK_AGENTS.GREEN, summaryPrompt, userId);
     } catch (e) {
-      summary = `종합 정리 오류: ${e.message}`;
+      summary = `醫낇빀 ?뺣━ ?ㅻ쪟: ${e.message}`;
     }
 
     await postSlackBotMessage(greenToken, {
       channel: JUN_COMMAND_CENTER_ID, thread_ts: threadTs,
-      text: `📋 *종합 액션 플랜*\n\n${summary}`, unfurl_links: false
+      text: `?뱥 *醫낇빀 ?≪뀡 ?뚮옖*\n\n${summary}`, unfurl_links: false
     });
   }
 
-  await logSlackEvent(env, 'brainstorm', `브레인스토밍: ${topic.slice(0, 100)}`, `user:${userId} agents:GREEN,RED,BLUE`);
+  await logSlackEvent(env, 'brainstorm', `釉뚮젅?몄뒪?좊컢: ${topic.slice(0, 100)}`, `user:${userId} agents:GREEN,RED,BLUE`);
 }
 
 async function generateSlackAgentResponse(env, agent, userText, userId) {
   const llm = agent.llm;
   const apiKey = await getSlackConfigValue(env, llm.apiKeyEnv);
-  if (!apiKey) return `[${agent.name}] ${llm.apiKeyEnv} 미설정`;
+  if (!apiKey) return `[${agent.name}] ${llm.apiKeyEnv} 誘몄꽕`;
 
-  // D1 실데이터 조회
+  // D1 ?ㅻ뜲?댄꽣 議고쉶
   let d1Context = '';
   try { d1Context = await getD1Context(env, userText); } catch (e) { console.error('[SLACK] D1 context err:', e.message); }
 
-  const systemPrompt = `You are ${agent.name} (${agent.emoji}), STUDIOJUN 프로덕션 팀 전담 AI 에이전트.
-역할: ${agent.role}
-프로젝트: TURBO ONE (터보원) — 26부작 11분 3D 메카 로봇 애니메이션. 5개 부서: Design(콘셉트), Asset(모델링), Animation(Maya), RenderComp(렌더합성), FX(이펙트).
-파이프라인: Maya Playblast → Seedance 2.0 AI 렌더 → Topaz 업스케일 → 합성
-인프라: Cloudflare Workers(ES Module) + D1 + R2. Kubernetes, Docker, Prometheus, Grafana는 사용하지 않음.
-톤: 한국어 존댓말, 간결하지만 핵심 전달.
+  const systemPrompt = `You are ${agent.name} (${agent.emoji}), STUDIOJUN ?꾨줈?뺤뀡 ? ?꾨떞 AI ?먯씠?꾪듃.
+??븷: ${agent.role}
+?꾨줈?앺듃: TURBO ONE (?곕낫?? ??26遺??11遺?3D 硫붿뭅 濡쒕큸 ?좊땲硫붿씠?? 5媛?遺?? Design(肄섏뀎??, Asset(紐⑤뜽留?, Animation(Maya), RenderComp(?뚮뜑?⑹꽦), FX(?댄럺??.
+?뚯씠?꾨씪?? Maya Playblast ??Seedance 2.0 AI ?뚮뜑 ??Topaz ?낆뒪耳?????⑹꽦
+?명봽?? Cloudflare Workers(ES Module) + D1 + R2. Kubernetes, Docker, Prometheus, Grafana???ъ슜?섏? ?딆쓬.
+?? ?쒓뎅??議대뙎留? 媛꾧껐?섏?留??듭떖 ?꾨떖.
 
-중요 규칙:
-1. 아래 "실시간 D1 데이터" 섹션에 있는 정보만 사실로 답변할 것.
-2. D1 데이터에 없는 내용은 절대 추측하거나 만들어내지 말 것. "해당 데이터가 D1에 없습니다"라고 솔직히 답변할 것.
-3. Kubernetes, Docker, Prometheus, Grafana, pod, scrape, namespace 등 존재하지 않는 인프라를 언급하지 말 것.
-4. worker 현재 배포 버전: ${WORKER_VERSION} (이 정보는 시스템에서 직접 제공됨, 정확함)
+以묒슂 洹쒖튃:
+1. ?꾨옒 "?ㅼ떆媛?D1 ?곗씠?? ?뱀뀡???덈뒗 ?뺣낫留??ъ떎濡??듬???寃?
+2. D1 ?곗씠?곗뿉 ?녿뒗 ?댁슜? ?덈? 異붿륫?섍굅??留뚮뱾?대궡吏 留?寃? "?대떦 ?곗씠?곌? D1???놁뒿?덈떎"?쇨퀬 ?붿쭅???듬???寃?
+3. Kubernetes, Docker, Prometheus, Grafana, pod, scrape, namespace ??議댁옱?섏? ?딅뒗 ?명봽?쇰? ?멸툒?섏? 留?寃?
+4. worker ?꾩옱 諛고룷 踰꾩쟾: ${WORKER_VERSION} (???뺣낫???쒖뒪?쒖뿉??吏곸젒 ?쒓났?? ?뺥솗??
 
-컨텍스트: 슬랙 채널. JUN = 감독/프로듀서. 300단어 이내 답변.
-다른 봇에게 위임 필요 시: @GREEN(프론트/QA), @RED(백엔드/배포), @BLUE(구글시트/번역) 멘션.
+而⑦뀓?ㅽ듃: ?щ옓 梨꾨꼸. JUN = 媛먮룆/?꾨줈??? 300?⑥뼱 ?대궡 ?듬?.
+?ㅻⅨ 遊뉗뿉寃??꾩엫 ?꾩슂 ?? @GREEN(?꾨줎??QA), @RED(諛깆뿏??諛고룷), @BLUE(援ш??쒗듃/踰덉뿭) 硫섏뀡.
 ${d1Context}`;
 
-  // Provider별 API 호출
+  // Provider蹂?API ?몄텧
   if (llm.provider === 'anthropic') {
     return await callAnthropicAPI(apiKey, llm.model, systemPrompt, userText, llm.maxTokens, agent.name);
   } else if (llm.provider === 'openai') {
@@ -4334,15 +4322,15 @@ ${d1Context}`;
   } else if (llm.provider === 'google') {
     return await callGeminiAPI(apiKey, llm.model, systemPrompt, userText, llm.maxTokens, agent.name);
   }
-  return `[${agent.name}] 알 수 없는 provider: ${llm.provider}`;
+  return `[${agent.name}] ?????녿뒗 provider: ${llm.provider}`;
 }
 
-// D1 실데이터 컨텍스트 조회
+// D1 ?ㅻ뜲?댄꽣 而⑦뀓?ㅽ듃 議고쉶
 async function getD1Context(env, userText) {
   const lower = (userText || '').toLowerCase();
   const parts = [];
 
-  // 항상: 프로젝트 요약 통계
+  // ??긽: ?꾨줈?앺듃 ?붿빟 ?듦퀎
   try {
     const stats = await env.DB.prepare(`
       SELECT
@@ -4356,22 +4344,22 @@ async function getD1Context(env, userText) {
     `).first();
     if (stats) {
       const pct = stats.shot_total > 0 ? Math.round(stats.shot_done / stats.shot_total * 100) : 0;
-      parts.push(`[프로젝트 현황] 에피소드:${stats.ep_count}개, 샷:${stats.shot_total}개(완료${stats.shot_done}/진행${stats.shot_wip}/대기${stats.shot_pending}, ${pct}%), 에셋:${stats.asset_total}개, 활성멤버:${stats.member_count}명`);
+      parts.push(`[?꾨줈?앺듃 ?꾪솴] ?먰뵾?뚮뱶:${stats.ep_count}媛? ??${stats.shot_total}媛??꾨즺${stats.shot_done}/吏꾪뻾${stats.shot_wip}/?湲?{stats.shot_pending}, ${pct}%), ?먯뀑:${stats.asset_total}媛? ?쒖꽦硫ㅻ쾭:${stats.member_count}紐`);
     }
   } catch (e) { /* skip */ }
 
-  // 에피소드 관련 키워드
-  if (lower.match(/에피소드|ep\d|episode|시즌/)) {
+  // ?먰뵾?뚮뱶 愿???ㅼ썙??
+  if (lower.match(/episode|ep\d|sequence/)) {
     try {
       const eps = await env.DB.prepare("SELECT code, title, status FROM episodes WHERE archived=0 ORDER BY order_index LIMIT 26").all();
       if (eps.results?.length) {
         const epList = eps.results.map(e => `${e.code}(${e.status})`).join(', ');
-        parts.push(`[에피소드 목록] ${epList}`);
+        parts.push(`[?먰뵾?뚮뱶 紐⑸줉] ${epList}`);
       }
     } catch (e) { /* skip */ }
   }
 
-  // 특정 에피소드 샷 상태
+  // ?뱀젙 ?먰뵾?뚮뱶 ???곹깭
   const epMatch = lower.match(/ep\s?(\d+)/);
   if (epMatch) {
     try {
@@ -4382,56 +4370,56 @@ async function getD1Context(env, userText) {
           SELECT team, status, COUNT(*) as cnt FROM shots WHERE episode_id = ? AND archived=0 GROUP BY team, status ORDER BY team, status
         `).bind(epRow.id).all();
         if (shotStats.results?.length) {
-          parts.push(`[${epCode} 샷 상태] ${shotStats.results.map(r => `${r.team}/${r.status}:${r.cnt}`).join(', ')}`);
+          parts.push(`[${epCode} ???곹깭] ${shotStats.results.map(r => `${r.team}/${r.status}:${r.cnt}`).join(', ')}`);
         }
       }
     } catch (e) { /* skip */ }
   }
 
-  // 팀/부서 관련
-  if (lower.match(/팀|부서|인원|멤버|담당/)) {
+  // ?/遺??愿??
+  if (lower.match(/team|member|assign/)) {
     try {
       const members = await env.DB.prepare("SELECT name, team, role, department, region FROM members WHERE archived=0 AND is_active=1 LIMIT 30").all();
       if (members.results?.length) {
-        parts.push(`[팀원] ${members.results.map(m => `${m.name}(${m.team||''}/${m.department||''}/${m.region||'HQ'})`).join(', ')}`);
+        parts.push(`[??? ${members.results.map(m => `${m.name}(${m.team||''}/${m.department||''}/${m.region||'HQ'})`).join(', ')}`);
       }
     } catch (e) { /* skip */ }
   }
 
-  // 에셋 관련
-  if (lower.match(/에셋|asset|모델|캐릭터|배경|프롭/)) {
+  // ?먯뀑 愿??
+  if (lower.match(/asset|model|character|background|prop/)) {
     try {
       const assetStats = await env.DB.prepare("SELECT type, status, COUNT(*) as cnt FROM assets WHERE archived=0 GROUP BY type, status ORDER BY cnt DESC LIMIT 20").all();
       if (assetStats.results?.length) {
-        parts.push(`[에셋 현황] ${assetStats.results.map(a => `${a.type}/${a.status}:${a.cnt}`).join(', ')}`);
+        parts.push(`[?먯뀑 ?꾪솴] ${assetStats.results.map(a => `${a.type}/${a.status}:${a.cnt}`).join(', ')}`);
       }
     } catch (e) { /* skip */ }
   }
 
-  // 리뷰 관련
-  if (lower.match(/리뷰|review|검수|확인|피드백/)) {
+  // Review check
+  if (lower.match(/review|confirm|feedback/)) {
     try {
       const reviews = await env.DB.prepare("SELECT id, status, team, created_at FROM video_reviews ORDER BY created_at DESC LIMIT 5").all();
       if (reviews.results?.length) {
-        parts.push(`[최근 리뷰] ${reviews.results.map(r => `${r.id}(${r.status}/${r.team})`).join(', ')}`);
+        parts.push(`[理쒓렐 由щ럭] ${reviews.results.map(r => `${r.id}(${r.status}/${r.team})`).join(', ')}`);
       }
     } catch (e) { /* skip */ }
   }
 
-  // 구글시트 캐시
-  if (lower.match(/시트|sheet|스케줄|일정|진행/)) {
+  // 援ш??쒗듃 罹먯떆
+  if (lower.match(/sheet|schedule|progress/)) {
     try {
       const sheets = await env.DB.prepare("SELECT sheet_name, COUNT(*) as cnt, MAX(synced_at) as last_sync FROM sheets_cache GROUP BY sheet_name").all();
       if (sheets.results?.length) {
-        parts.push(`[구글시트 캐시] ${sheets.results.map(s => `${s.sheet_name}:${s.cnt}행(${s.last_sync ? new Date(s.last_sync).toLocaleDateString('ko') : '미동기화'})`).join(', ')}`);
+        parts.push(`[援ш??쒗듃 罹먯떆] ${sheets.results.map(s => `${s.sheet_name}:${s.cnt}??${s.last_sync ? new Date(s.last_sync).toLocaleDateString('ko') : '誘몃룞湲고솕'})`).join(', ')}`);
       }
     } catch (e) { /* skip */ }
   }
 
-  return parts.length ? '\n\n--- 실시간 D1 데이터 ---\n' + parts.join('\n') : '';
+  return parts.length ? '\n\n--- ?ㅼ떆媛?D1 ?곗씠??---\n' + parts.join('\n') : '';
 }
 
-// ===== 3대장 LLM API 호출 =====
+// ===== 3???LLM API ?몄텧 =====
 
 async function callAnthropicAPI(apiKey, model, systemPrompt, userText, maxTokens, agentName) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -4441,7 +4429,7 @@ async function callAnthropicAPI(apiKey, model, systemPrompt, userText, maxTokens
   });
   if (!response.ok) { const err = await response.text(); throw new Error(`Anthropic ${response.status}: ${err.slice(0, 200)}`); }
   const data = await response.json();
-  return data.content?.[0]?.text || `[${agentName}] 응답 없음`;
+  return data.content?.[0]?.text || `[${agentName}] ?묐떟 ?놁쓬`;
 }
 
 async function callOpenAIAPI(apiKey, model, systemPrompt, userText, maxTokens, agentName) {
@@ -4452,7 +4440,7 @@ async function callOpenAIAPI(apiKey, model, systemPrompt, userText, maxTokens, a
   });
   if (!response.ok) { const err = await response.text(); throw new Error(`OpenAI ${response.status}: ${err.slice(0, 200)}`); }
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || `[${agentName}] 응답 없음`;
+  return data.choices?.[0]?.message?.content || `[${agentName}] ?묐떟 ?놁쓬`;
 }
 
 async function callGeminiAPI(apiKey, model, systemPrompt, userText, maxTokens, agentName) {
@@ -4468,7 +4456,7 @@ async function callGeminiAPI(apiKey, model, systemPrompt, userText, maxTokens, a
   });
   if (!response.ok) { const err = await response.text(); throw new Error(`Gemini ${response.status}: ${err.slice(0, 200)}`); }
   const data = await response.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || `[${agentName}] 응답 없음`;
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || `[${agentName}] ?묐떟 ?놁쓬`;
 }
 
 async function postSlackBotMessage(token, params) {
@@ -4496,28 +4484,28 @@ async function processChannelMention(env, event, eventId) {
   // Log mention
   try {
     await env.DB.prepare('INSERT INTO slack_events (project_id, event_type, title, body, channel_hint, status, response_text) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind('TURBO ONE', 'channel_mention', `${agent.emoji} ${agent.name} 멘션`, sanitizeSlackText(text).slice(0, 500), event.channel, 'received', `event_id:${eventId}`)
+      .bind('TURBO ONE', 'channel_mention', `${agent.emoji} ${agent.name} 硫섏뀡`, sanitizeSlackText(text).slice(0, 500), event.channel, 'received', `event_id:${eventId}`)
       .run();
   } catch (e) { console.error('[SLACK-MENTION] Log err:', e.message); }
 
   // Generate & post response
   let responseText;
   try { responseText = await generateSlackAgentResponse(env, agent, text, event.user); }
-  catch (e) { responseText = `[${agent.name}] 처리 중 오류: ${e.message}`; }
+  catch (e) { responseText = `[${agent.name}] 泥섎━ 以??ㅻ쪟: ${e.message}`; }
 
   await postSlackBotMessage(token, { channel: event.channel, thread_ts: threadTs, text: responseText, unfurl_links: false });
 }
 
 async function processReactionEvent(env, event, eventId) {
   const reaction = event.reaction || '';
-  // ✅ = 리뷰 승인, 🔄 = 리테이크
+  // ??= 由щ럭 ?뱀씤, ?봽 = 由ы뀒?댄겕
   if (reaction !== 'white_check_mark' && reaction !== 'arrows_counterclockwise') return;
 
   const status = reaction === 'white_check_mark' ? 'confirmed' : 'retake';
   const msgTs = event.item?.ts || '';
   const channelId = event.item?.channel || '';
 
-  // D1에서 해당 메시지와 연결된 리뷰 찾아서 상태 업데이트
+  // D1?먯꽌 ?대떦 硫붿떆吏? ?곌껐??由щ럭 李얠븘???곹깭 ?낅뜲?댄듃
   try {
     const review = await env.DB.prepare(
       `SELECT id FROM video_reviews WHERE slack_thread_ts = ? OR slack_message_ts = ? LIMIT 1`
@@ -4525,20 +4513,20 @@ async function processReactionEvent(env, event, eventId) {
     if (review) {
       await env.DB.prepare(`UPDATE video_reviews SET status = ?, updated_at = datetime('now') WHERE id = ?`)
         .bind(status, review.id).run();
-      // 승인/리테이크 알림을 스레드에 포스팅
+      // ?뱀씤/由ы뀒?댄겕 ?뚮┝???ㅻ젅?쒖뿉 ?ъ뒪??
       const greenToken = await getSlackConfigValue(env, 'SLACK_BOT_TOKEN_GREEN');
       if (greenToken && channelId) {
-        const emoji = status === 'confirmed' ? '✅' : '🔄';
+        const emoji = status === 'confirmed' ? '\u2705' : '\u23f3';
         await postSlackBotMessage(greenToken, {
           channel: channelId, thread_ts: msgTs,
-          text: `${emoji} 리뷰 ${status === 'confirmed' ? '승인' : '리테이크'} 처리되었습니다. (review #${review.id})`,
+          text: `${emoji} 由щ럭 ${status === 'confirmed' ? '?뱀씤' : '由ы뀒?댄겕'} 泥섎━?섏뿀?듬땲?? (review #${review.id})`,
           unfurl_links: false
         });
       }
     }
   } catch (e) { console.error('[SLACK] Reaction D1 update err:', e.message); }
 
-  await logSlackEvent(env, 'reaction_review', `리액션 리뷰 ${status}: ${msgTs}`, `user:${event.user} reaction:${reaction} channel:${channelId}`);
+  await logSlackEvent(env, 'reaction_review', `由ъ븸??由щ럭 ${status}: ${msgTs}`, `user:${event.user} reaction:${reaction} channel:${channelId}`);
 }
 
 async function logSlackEvent(env, eventType, title, body) {
@@ -4583,12 +4571,12 @@ async function createReview(req, env) {
     versionNum, now, now
   ).run();
 
-  // Slack 자동 알림: 리뷰 요청
+  // Slack ?먮룞 ?뚮┝: 由щ럭 ?붿껌
   sendSlackEvent(env, {
     project_id: body.project_id || 'default',
     event_type: 'review_request',
-    title: `리뷰 요청: ${body.shot_id || body.filename || 'New Review'}`,
-    body: `팀: ${body.team || '-'} | 업로더: ${body.uploader_name || user.name || '-'} | 버전: v${versionNum}`,
+    title: `由щ럭 ?붿껌: ${body.shot_id || body.filename || 'New Review'}`,
+    body: `?: ${body.team || '-'} | ?낅줈?? ${body.uploader_name || user.name || '-'} | 踰꾩쟾: v${versionNum}`,
   }).catch(() => {});
 
   return json({ id: result.meta.last_row_id, status: 'pending', created_at: now }, 201);
@@ -4611,13 +4599,13 @@ async function updateReview(id, req, env) {
   params.push(parseInt(id));
   await env.DB.prepare(`UPDATE video_reviews SET ${sets.join(', ')} WHERE id = ?`).bind(...params).run();
 
-  // Slack 자동 알림: 리뷰 결과 (confirmed/retake)
+  // Slack ?먮룞 ?뚮┝: 由щ럭 寃곌낵 (confirmed/retake)
   if (body.status === 'confirmed' || body.status === 'retake') {
-    const emoji = body.status === 'confirmed' ? '✅' : '🔄';
+    const emoji = body.status === 'confirmed' ? '\u2705' : '\u23f3';
     sendSlackEvent(env, {
       event_type: 'review_comment',
-      title: `${emoji} 리뷰 ${body.status === 'confirmed' ? '승인' : '리테이크'}: #${id}`,
-      body: `리뷰어: ${body.reviewer_name || '-'}${body.feedback ? ` | 피드백: ${body.feedback}` : ''}${body.retake_note ? ` | 리테이크 사유: ${body.retake_note}` : ''}`,
+      title: `${emoji} 由щ럭 ${body.status === 'confirmed' ? '?뱀씤' : '由ы뀒?댄겕'}: #${id}`,
+      body: `由щ럭?? ${body.reviewer_name || '-'}${body.feedback ? ` | ?쇰뱶諛? ${body.feedback}` : ''}${body.retake_note ? ` | 由ы뀒?댄겕 ?ъ쑀: ${body.retake_note}` : ''}`,
     }).catch(() => {});
   }
 
@@ -4713,7 +4701,7 @@ async function logActivity(env, projectId, actorName, action, targetType, target
   ).bind(projectId || '', actorName || '', action || '', targetType || '', targetId || '', detail || '').run();
 }
 
-// JWT 쿠키 파싱
+// JWT 荑좏궎 ?뚯떛
 function getJwtFromCookie(request) {
   const cookie = request.headers.get('Cookie') || '';
   const match = cookie.match(/sj_jwt=([^;\s]+)/);
@@ -4778,10 +4766,10 @@ async function guideTranscript(req, env) {
   const { session_id, chunk_index, start_time, end_time, text_ko } = await req.json();
   if (!session_id || chunk_index == null || !text_ko) return json({ error: 'Missing fields' }, 400);
 
-  const cutPattern = /다음\s*컷|컷\s*\d+|씬\s*\d+|넘어가|다음\s*장면/;
+  const cutPattern = /cut\s*\d+|#\s*\d+/;
   const isCutCue = cutPattern.test(text_ko) ? 1 : 0;
   let cutLabel = null;
-  const labelMatch = text_ko.match(/(?:컷|씬)\s*(\d+)/);
+  const labelMatch = text_ko.match(/(?:cut|#)\s*(\d+)/);
   if (labelMatch) cutLabel = labelMatch[0];
 
   await env.DB.prepare(
@@ -4903,9 +4891,8 @@ function fmtVTT(sec) {
 }
 
 // ===================================================================
-// 가이드 비디오 처리 API (2시간 감독 가이드 영상 파이프라인)
-// Whisper STT + Claude 요약/번역 + R2 멀티파트 업로드
-// ===================================================================
+// 媛?대뱶 鍮꾨뵒??泥섎━ API (2?쒓컙 媛먮룆 媛?대뱶 ?곸긽 ?뚯씠?꾨씪??
+// Whisper STT + Claude ?붿빟/踰덉뿭 + R2 硫?고뙆???낅줈??// ===================================================================
 
 function guideId(prefix) {
   const d = new Date().toISOString().slice(0,10).replace(/-/g,'');
@@ -4935,21 +4922,93 @@ async function initGuideTables(db) {
       id TEXT PRIMARY KEY, session_id TEXT, chunk_number INTEGER,
       start_time REAL, end_time REAL, text_ko TEXT, confidence REAL,
       status TEXT DEFAULT 'pending', created_at INTEGER DEFAULT (unixepoch())
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS guide_dubs (
+      id TEXT PRIMARY KEY, session_id TEXT NOT NULL, language TEXT NOT NULL,
+      provider TEXT DEFAULT 'elevenlabs', provider_job_id TEXT,
+      source_key TEXT, source_url TEXT, media_key TEXT, subtitle_srt_key TEXT,
+      subtitle_vtt_key TEXT, status TEXT DEFAULT 'pending', approved INTEGER DEFAULT 0,
+      error_message TEXT, created_at INTEGER DEFAULT (unixepoch()), updated_at INTEGER DEFAULT (unixepoch()),
+      UNIQUE(session_id, language)
     )`)
   ]);
+}
+
+function elevenLabsHeaders(env, jsonContent = true) {
+  const headers = { 'xi-api-key': env.ELEVENLABS_API_KEY || '' };
+  if (jsonContent) headers['Content-Type'] = 'application/json';
+  return headers;
+}
+
+function srtToVtt(srtText) {
+  const normalized = String(srtText || '').replace(/\r/g, '').replace(/(\d\d:\d\d:\d\d),(\d{3})/g, '$1.$2');
+  return `WEBVTT\n\n${normalized.trim()}\n`;
+}
+
+function guidePublicMediaUrl(request, key) {
+  if (!key) return '';
+  const url = new URL(request.url);
+  return `${url.origin}/r2/download/${encodeURIComponent(String(key)).replace(/%2F/g, '/')}`;
+}
+
+async function upsertGuideDub(db, row) {
+  const id = row.id || guideId('DUB');
+  const now = Math.floor(Date.now() / 1000);
+  await db.prepare(
+    `INSERT INTO guide_dubs
+      (id,session_id,language,provider,provider_job_id,source_key,source_url,media_key,subtitle_srt_key,subtitle_vtt_key,status,approved,error_message,created_at,updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     ON CONFLICT(session_id, language) DO UPDATE SET
+      provider_job_id=excluded.provider_job_id,
+      source_key=excluded.source_key,
+      source_url=excluded.source_url,
+      media_key=excluded.media_key,
+      subtitle_srt_key=excluded.subtitle_srt_key,
+      subtitle_vtt_key=excluded.subtitle_vtt_key,
+      status=excluded.status,
+      error_message=excluded.error_message,
+      updated_at=excluded.updated_at`
+  ).bind(
+    id,
+    row.session_id,
+    row.language,
+    row.provider || 'elevenlabs',
+    row.provider_job_id || null,
+    row.source_key || null,
+    row.source_url || null,
+    row.media_key || null,
+    row.subtitle_srt_key || null,
+    row.subtitle_vtt_key || null,
+    row.status || 'pending',
+    row.approved ? 1 : 0,
+    row.error_message || null,
+    now,
+    now
+  ).run();
+  return id;
 }
 
 async function handleGuideAPI(path, request, env) {
   const method = request.method;
   const db = env.DB;
 
-  // 테이블 자동 생성
+  // ?뚯씠釉??먮룞 ?앹꽦
   await initGuideTables(db);
 
-  // --- 세션 관리 ---
+  if (path === '/api/guide/dub/config' && method === 'GET') {
+    return json({
+      success: true,
+      provider: 'elevenlabs',
+      configured: Boolean(env.ELEVENLABS_API_KEY),
+      languages: ['en', 'vi'],
+      requires_confirmation: true
+    });
+  }
+
+  // --- ?몄뀡 愿由?---
   if (path === '/api/guide/session' && method === 'POST') {
     const { title, episode, duration_seconds, created_by } = await request.json();
-    if (!title || !episode) return json({ error: 'title, episode 필수' }, 400);
+    if (!title || !episode) return json({ error: 'title, episode ?꾩닔' }, 400);
     const id = guideId('GUIDE');
     const now = Math.floor(Date.now() / 1000);
     await db.prepare(
@@ -4962,9 +5021,146 @@ async function handleGuideAPI(path, request, env) {
   const sessionMatch = path.match(/^\/api\/guide\/session\/([^/]+)$/);
   if (sessionMatch && method === 'GET') {
     const session = await db.prepare('SELECT * FROM guide_sessions WHERE id=?').bind(sessionMatch[1]).first();
-    if (!session) return json({ error: '세션 없음' }, 404);
+    if (!session) return json({ error: '?몄뀡 ?놁쓬' }, 404);
     const cuts = await db.prepare('SELECT * FROM guide_cuts WHERE session_id=? ORDER BY cut_number').bind(session.id).all();
-    return json({ success: true, session, cuts: cuts.results });
+    const dubs = await db.prepare('SELECT * FROM guide_dubs WHERE session_id=? ORDER BY language').bind(session.id).all();
+    return json({ success: true, session, cuts: cuts.results, dubs: dubs.results });
+  }
+
+  const dubMatch = path.match(/^\/api\/guide\/dub\/([^/]+)$/);
+  if (dubMatch && method === 'POST') {
+    if (!env.ELEVENLABS_API_KEY) return json({ error: 'ELEVENLABS_API_KEY secret is not configured' }, 503);
+    const sessionId = dubMatch[1];
+    const session = await db.prepare('SELECT * FROM guide_sessions WHERE id=?').bind(sessionId).first();
+    if (!session) return json({ error: 'Guide session not found' }, 404);
+
+    const body = await request.json().catch(() => ({}));
+    const language = String(body.language || body.target_lang || '').toLowerCase();
+    if (!['en', 'vi'].includes(language)) return json({ error: 'language must be en or vi' }, 400);
+    if (!body.confirmed) return json({ error: 'confirmed=true is required before starting paid dubbing' }, 409);
+
+    const sourceUrl = body.source_url || guidePublicMediaUrl(request, body.source_key || session.video_key);
+    if (!sourceUrl) return json({ error: 'source_url or session video_key is required' }, 400);
+
+    const dubForm = new FormData();
+    dubForm.append('source_url', sourceUrl);
+    dubForm.append('source_lang', body.source_lang || 'ko');
+    dubForm.append('target_lang', language);
+    dubForm.append('mode', body.mode || 'automatic');
+    dubForm.append('num_speakers', String(body.num_speakers ?? 0));
+    dubForm.append('watermark', String(body.watermark ?? false));
+    dubForm.append('highest_resolution', String(body.highest_resolution ?? false));
+    dubForm.append('drop_background_audio', String(body.drop_background_audio ?? false));
+    dubForm.append('name', body.name || `${session.episode || 'TBO'} ${session.title || sessionId} ${language.toUpperCase()}`);
+
+    const createRes = await fetch('https://api.elevenlabs.io/v1/dubbing', {
+      method: 'POST',
+      headers: elevenLabsHeaders(env, false),
+      body: dubForm
+    });
+
+    const payload = await createRes.json().catch(async () => ({ error: await createRes.text() }));
+    if (!createRes.ok) {
+      await upsertGuideDub(db, {
+        session_id: sessionId,
+        language,
+        source_key: body.source_key || session.video_key,
+        source_url: sourceUrl,
+        status: 'error',
+        error_message: JSON.stringify(payload).slice(0, 900)
+      });
+      return json({ error: 'ElevenLabs dubbing request failed', detail: payload }, createRes.status);
+    }
+
+    const dubbingId = payload.dubbing_id || payload.id || payload.job_id;
+    await upsertGuideDub(db, {
+      session_id: sessionId,
+      language,
+      provider_job_id: dubbingId,
+      source_key: body.source_key || session.video_key,
+      source_url: sourceUrl,
+      status: 'processing'
+    });
+    return json({ success: true, sessionId, language, provider: 'elevenlabs', provider_job_id: dubbingId, status: 'processing' });
+  }
+
+  const dubStatusMatch = path.match(/^\/api\/guide\/dub\/([^/]+)\/status$/);
+  if (dubStatusMatch && method === 'GET') {
+    const sessionId = dubStatusMatch[1];
+    const language = new URL(request.url).searchParams.get('language');
+    const rows = await db.prepare(
+      language ? 'SELECT * FROM guide_dubs WHERE session_id=? AND language=?' : 'SELECT * FROM guide_dubs WHERE session_id=? ORDER BY language'
+    ).bind(...(language ? [sessionId, language] : [sessionId])).all();
+
+    if (env.ELEVENLABS_API_KEY) {
+      for (const row of rows.results) {
+        if (!row.provider_job_id || ['ready', 'approved', 'error'].includes(row.status)) continue;
+        const statusRes = await fetch(`https://api.elevenlabs.io/v1/dubbing/${row.provider_job_id}`, {
+          headers: elevenLabsHeaders(env, false)
+        });
+        if (!statusRes.ok) continue;
+        const statusPayload = await statusRes.json();
+        const providerStatus = statusPayload.status || statusPayload.dubbing_status || row.status;
+        await db.prepare('UPDATE guide_dubs SET status=?, error_message=?, updated_at=? WHERE id=?')
+          .bind(providerStatus, statusPayload.error || null, Math.floor(Date.now() / 1000), row.id).run();
+      }
+    }
+
+    const latest = await db.prepare(
+      language ? 'SELECT * FROM guide_dubs WHERE session_id=? AND language=?' : 'SELECT * FROM guide_dubs WHERE session_id=? ORDER BY language'
+    ).bind(...(language ? [sessionId, language] : [sessionId])).all();
+    return json({ success: true, dubs: latest.results });
+  }
+
+  const dubImportMatch = path.match(/^\/api\/guide\/dub\/([^/]+)\/import-results$/);
+  if (dubImportMatch && method === 'POST') {
+    if (!env.ELEVENLABS_API_KEY) return json({ error: 'ELEVENLABS_API_KEY secret is not configured' }, 503);
+    const sessionId = dubImportMatch[1];
+    const body = await request.json().catch(() => ({}));
+    const language = String(body.language || '').toLowerCase();
+    if (!['en', 'vi'].includes(language)) return json({ error: 'language must be en or vi' }, 400);
+
+    const row = await db.prepare('SELECT * FROM guide_dubs WHERE session_id=? AND language=?').bind(sessionId, language).first();
+    if (!row?.provider_job_id) return json({ error: 'Dubbing job not found' }, 404);
+    const session = await db.prepare('SELECT * FROM guide_sessions WHERE id=?').bind(sessionId).first();
+    if (!session) return json({ error: 'Guide session not found' }, 404);
+
+    const baseKey = `guides/${session.episode || 'TBO'}/${sessionId}`;
+    const mediaRes = await fetch(`https://api.elevenlabs.io/v1/dubbing/${row.provider_job_id}/audio/${language}`, {
+      headers: elevenLabsHeaders(env, false)
+    });
+    if (!mediaRes.ok) return json({ error: 'Failed to fetch dubbed media', detail: await mediaRes.text() }, mediaRes.status);
+    const mediaBody = await mediaRes.arrayBuffer();
+    const mediaKey = `${baseKey}/${language}_dub.mp4`;
+    await env.ASSETS.put(mediaKey, mediaBody, { httpMetadata: { contentType: mediaRes.headers.get('Content-Type') || 'video/mp4' } });
+
+    let srtKey = null;
+    let vttKey = null;
+    const srtRes = await fetch(`https://api.elevenlabs.io/v1/dubbing/${row.provider_job_id}/transcript/${language}?format=srt`, {
+      headers: elevenLabsHeaders(env, false)
+    });
+    if (srtRes.ok) {
+      const srt = await srtRes.text();
+      srtKey = `${baseKey}/${language}.srt`;
+      vttKey = `${baseKey}/${language}.vtt`;
+      await env.ASSETS.put(srtKey, srt, { httpMetadata: { contentType: 'application/x-subrip; charset=utf-8' } });
+      await env.ASSETS.put(vttKey, srtToVtt(srt), { httpMetadata: { contentType: 'text/vtt; charset=utf-8' } });
+    }
+
+    await upsertGuideDub(db, {
+      id: row.id,
+      session_id: sessionId,
+      language,
+      provider_job_id: row.provider_job_id,
+      source_key: row.source_key,
+      source_url: row.source_url,
+      media_key: mediaKey,
+      subtitle_srt_key: srtKey,
+      subtitle_vtt_key: vttKey,
+      status: 'ready'
+    });
+
+    return json({ success: true, sessionId, language, media_key: mediaKey, subtitle_srt_key: srtKey, subtitle_vtt_key: vttKey, status: 'ready' });
   }
 
   // PATCH /api/guide/session/:id
@@ -4984,7 +5180,7 @@ async function handleGuideAPI(path, request, env) {
     return json({ success: true });
   }
 
-  // --- R2 멀티파트 업로드 ---
+  // --- R2 硫?고뙆???낅줈??---
   if (path === '/api/guide/upload/init' && method === 'POST') {
     const { sessionId, filename } = await request.json();
     const key = `guides/${sessionId}/${filename || 'video.mp4'}`;
@@ -5023,13 +5219,13 @@ async function handleGuideAPI(path, request, env) {
   // --- STT (Whisper API) ---
   if (path === '/api/guide/stt/chunk' && method === 'POST') {
     const { sessionId, chunkNumber, audioBase64, format } = await request.json();
-    if (!sessionId || !audioBase64) return json({ error: 'sessionId, audioBase64 필수' }, 400);
+    if (!sessionId || !audioBase64) return json({ error: 'sessionId, audioBase64 ?꾩닔' }, 400);
 
-    // base64 → binary
+    // base64 ??binary
     const audioBytes = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
     const ext = format || 'wav';
 
-    // Whisper API 호출
+    // Whisper API ?몄텧
     const formData = new FormData();
     formData.append('file', new Blob([audioBytes], { type: `audio/${ext}` }), `chunk.${ext}`);
     formData.append('model', 'whisper-1');
@@ -5045,12 +5241,12 @@ async function handleGuideAPI(path, request, env) {
 
     if (!whisperRes.ok) {
       const err = await whisperRes.text();
-      return json({ error: 'Whisper API 오류', detail: err }, 500);
+      return json({ error: 'Whisper API ?ㅻ쪟', detail: err }, 500);
     }
 
     const result = await whisperRes.json();
 
-    // STT 청크 저장
+    // STT 泥?겕 ???
     const chunkId = guideId('STT');
     const startTime = (result.segments && result.segments[0]?.start) || 0;
     const endTime = (result.segments && result.segments[result.segments.length-1]?.end) || 0;
@@ -5076,10 +5272,10 @@ async function handleGuideAPI(path, request, env) {
     return json({ success: true, chunks: chunks.results, total: chunks.results.length });
   }
 
-  // --- 컷 관리 ---
+  // --- 而?愿由?---
   if (path === '/api/guide/cuts' && method === 'POST') {
     const { sessionId, cuts } = await request.json();
-    if (!sessionId || !cuts?.length) return json({ error: 'sessionId, cuts[] 필수' }, 400);
+    if (!sessionId || !cuts?.length) return json({ error: 'sessionId, cuts[] ?꾩닔' }, 400);
 
     const stmts = cuts.map((cut, i) => {
       const id = guideId('CUT');
@@ -5105,12 +5301,12 @@ async function handleGuideAPI(path, request, env) {
     return json({ success: true, cuts: cuts.results });
   }
 
-  // --- 컷별 썸네일 업로드 ---
+  // --- 而룸퀎 ?몃꽕???낅줈??---
   const thumbMatch = path.match(/^\/api\/guide\/cuts\/([^/]+)\/thumbnail$/);
   if (thumbMatch && method === 'POST') {
     const cutId = thumbMatch[1];
     const cut = await db.prepare('SELECT * FROM guide_cuts WHERE id=?').bind(cutId).first();
-    if (!cut) return json({ error: '컷 없음' }, 404);
+    if (!cut) return json({ error: '而??놁쓬' }, 404);
 
     const { imageBase64, sessionId } = await request.json();
     const imgBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
@@ -5120,13 +5316,13 @@ async function handleGuideAPI(path, request, env) {
     return json({ success: true, key });
   }
 
-  // --- 컷별 요약 (Claude API) ---
+  // --- 而룸퀎 ?붿빟 (Claude API) ---
   const summaryMatch = path.match(/^\/api\/guide\/cuts\/([^/]+)\/summary$/);
   if (summaryMatch && method === 'POST') {
     const cutId = summaryMatch[1];
     const cut = await db.prepare('SELECT * FROM guide_cuts WHERE id=?').bind(cutId).first();
-    if (!cut) return json({ error: '컷 없음' }, 404);
-    if (!cut.transcript_ko) return json({ error: '전사 텍스트 없음. STT를 먼저 실행하세요.' }, 400);
+    if (!cut) return json({ error: '而??놁쓬' }, 404);
+    if (!cut.transcript_ko) return json({ error: '?꾩궗 ?띿뒪???놁쓬. STT瑜?癒쇱? ?ㅽ뻾?섏꽭??' }, 400);
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -5140,14 +5336,14 @@ async function handleGuideAPI(path, request, env) {
         max_tokens: 500,
         messages: [{
           role: 'user',
-          content: `다음은 3D 애니메이션 감독의 가이드 영상에서 추출한 컷 #${cut.cut_number} (${cut.start_time}s ~ ${cut.end_time}s)의 음성 전사입니다.
+          content: `?ㅼ쓬? 3D ?좊땲硫붿씠??媛먮룆??媛?대뱶 ?곸긽?먯꽌 異붿텧??而?#${cut.cut_number} (${cut.start_time}s ~ ${cut.end_time}s)???뚯꽦 ?꾩궗?낅땲??
 
-전사 텍스트:
+?꾩궗 ?띿뒪??
 ${cut.transcript_ko}
 
-이 컷에 대해 애니메이터가 작업할 때 필요한 핵심 지시사항을 2-3개 불릿포인트로 요약해주세요.
-카메라 움직임, 캐릭터 연기, 타이밍, 감정 등 애니메이션 방향에 집중하세요.
-JSON 형식으로 응답: {"summary": "요약 텍스트", "keywords": ["키워드1", "키워드2"]}`
+??而룹뿉 ????좊땲硫붿씠?곌? ?묒뾽?????꾩슂???듭떖 吏?쒖궗??쓣 2-3媛?遺덈┸?ъ씤?몃줈 ?붿빟?댁＜?몄슂.
+移대찓???吏곸엫, 罹먮┃???곌린, ??대컢, 媛먯젙 ???좊땲硫붿씠??諛⑺뼢??吏묒쨷?섏꽭??
+JSON ?뺤떇?쇰줈 ?묐떟: {"summary": "?붿빟 ?띿뒪??, "keywords": ["?ㅼ썙??", "?ㅼ썙??"]}`
         }]
       })
     });
@@ -5169,15 +5365,15 @@ JSON 형식으로 응답: {"summary": "요약 텍스트", "keywords": ["키워�
     return json({ success: true, summary, keywords });
   }
 
-  // --- 컷별 번역 (Claude API: KO → EN, VI) ---
+  // --- 而룸퀎 踰덉뿭 (Claude API: KO ??EN, VI) ---
   const translateMatch = path.match(/^\/api\/guide\/cuts\/([^/]+)\/translate$/);
   if (translateMatch && method === 'POST') {
     const cutId = translateMatch[1];
     const cut = await db.prepare('SELECT * FROM guide_cuts WHERE id=?').bind(cutId).first();
-    if (!cut) return json({ error: '컷 없음' }, 404);
+    if (!cut) return json({ error: '而??놁쓬' }, 404);
 
     const textToTranslate = cut.summary_ko || cut.transcript_ko;
-    if (!textToTranslate) return json({ error: '번역할 텍스트 없음' }, 400);
+    if (!textToTranslate) return json({ error: '踰덉뿭???띿뒪???놁쓬' }, 400);
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -5191,13 +5387,13 @@ JSON 형식으로 응답: {"summary": "요약 텍스트", "keywords": ["키워�
         max_tokens: 1000,
         messages: [{
           role: 'user',
-          content: `3D 애니메이션 제작 컨텍스트에서 다음 한국어 텍스트를 영어와 베트남어로 번역하세요.
-애니메이션 용어(blocking, polish, timing, spacing, arc 등)는 영어 그대로 유지하세요.
+          content: `3D ?좊땲硫붿씠???쒖옉 而⑦뀓?ㅽ듃?먯꽌 ?ㅼ쓬 ?쒓뎅???띿뒪?몃? ?곸뼱? 踰좏듃?⑥뼱濡?踰덉뿭?섏꽭??
+?좊땲硫붿씠???⑹뼱(blocking, polish, timing, spacing, arc ?????곸뼱 洹몃?濡??좎??섏꽭??
 
-원문 (한국어):
+?먮Ц (?쒓뎅??:
 ${textToTranslate}
 
-JSON 형식으로 응답: {"en": "영어 번역", "vi": "베트남어 번역"}`
+JSON ?뺤떇?쇰줈 ?묐떟: {"en": "?곸뼱 踰덉뿭", "vi": "踰좏듃?⑥뼱 踰덉뿭"}`
         }]
       })
     });
@@ -5212,14 +5408,14 @@ JSON 형식으로 응답: {"en": "영어 번역", "vi": "베트남어 번역"}`
     return json({ success: true, en, vi });
   }
 
-  // --- 배분 (Distribution) ---
+  // --- 諛곕텇 (Distribution) ---
   const distributeMatch = path.match(/^\/api\/guide\/distribute\/([^/]+)$/);
   if (distributeMatch && method === 'POST') {
     const sessionId = distributeMatch[1];
     const { assignments } = await request.json();
     // assignments: [{ cutId, memberId, team }]
 
-    if (!assignments?.length) return json({ error: 'assignments[] 필수' }, 400);
+    if (!assignments?.length) return json({ error: 'assignments[] ?꾩닔' }, 400);
 
     const stmts = assignments.map(a =>
       db.prepare('UPDATE guide_cuts SET assigned_to=?, assigned_team=?, status=? WHERE id=?')
@@ -5233,12 +5429,12 @@ JSON 형식으로 응답: {"en": "영어 번역", "vi": "베트남어 번역"}`
     return json({ success: true, assigned: assignments.length });
   }
 
-  // --- 전체 패키지 조회 ---
+  // --- ?꾩껜 ?⑦궎吏 議고쉶 ---
   const packageMatch = path.match(/^\/api\/guide\/package\/([^/]+)$/);
   if (packageMatch && method === 'GET') {
     const sessionId = packageMatch[1];
     const session = await db.prepare('SELECT * FROM guide_sessions WHERE id=?').bind(sessionId).first();
-    if (!session) return json({ error: '세션 없음' }, 404);
+    if (!session) return json({ error: '?몄뀡 ?놁쓬' }, 404);
 
     const cuts = await db.prepare('SELECT * FROM guide_cuts WHERE session_id=? ORDER BY cut_number')
       .bind(sessionId).all();
@@ -5261,7 +5457,7 @@ JSON 형식으로 응답: {"en": "영어 번역", "vi": "베트남어 번역"}`
     });
   }
 
-  // --- STT 결과를 컷에 매핑 ---
+  // --- STT 寃곌낵瑜?而룹뿉 留ㅽ븨 ---
   if (path === '/api/guide/stt/map-to-cuts' && method === 'POST') {
     const { sessionId } = await request.json();
     const cuts = await db.prepare('SELECT * FROM guide_cuts WHERE session_id=? ORDER BY cut_number').bind(sessionId).all();
@@ -5269,7 +5465,7 @@ JSON 형식으로 응답: {"en": "영어 번역", "vi": "베트남어 번역"}`
 
     const stmts = [];
     for (const cut of cuts.results) {
-      // 해당 컷 시간범위에 해당하는 STT 텍스트 수집
+      // ?대떦 而??쒓컙踰붿쐞???대떦?섎뒗 STT ?띿뒪???섏쭛
       const texts = chunks.results
         .filter(ch => ch.start_time < cut.end_time && ch.end_time > cut.start_time)
         .map(ch => ch.text_ko)
@@ -5289,13 +5485,11 @@ JSON 형식으로 응답: {"en": "영어 번역", "vi": "베트남어 번역"}`
     return json({ success: true, mapped: stmts.length });
   }
 
-  return json({ error: '가이드 API 엔드포인트를 찾을 수 없습니다: ' + path }, 404);
+  return json({ error: '媛?대뱶 API ?붾뱶?ъ씤?몃? 李얠쓣 ???놁뒿?덈떎: ' + path }, 404);
 }
 
 // ===================================================================
-// Storyboard Review API — 컷별 플레이블라스트 리뷰 + 버전 비교 + 코멘트
-// D1 저장 + R2 영상 스토리지 + 웹 최적화 컨버팅
-// ===================================================================
+// Storyboard Review API ??而룸퀎 ?뚮젅?대툝?쇱뒪??由щ럭 + 踰꾩쟾 鍮꾧탳 + 肄붾찘??// D1 ???+ R2 ?곸긽 ?ㅽ넗由ъ? + ??理쒖쟻??而⑤쾭??// ===================================================================
 
 function sbId(prefix) {
   const d = new Date().toISOString().slice(0,10).replace(/-/g,'');
@@ -5375,18 +5569,18 @@ async function handleStoryboardAPI(path, request, env) {
 
   // ===== EPISODES =====
 
-  // POST /api/storyboard/episodes — 에피소드 생성
+  // POST /api/storyboard/episodes ???먰뵾?뚮뱶 ?앹꽦
   if (path === '/api/storyboard/episodes' && method === 'POST') {
     const body = await request.json();
     const id = sbId('EP');
     await db.prepare(
       `INSERT INTO sb_episodes (id, project_id, title, episode_number, created_by)
        VALUES (?, ?, ?, ?, ?)`
-    ).bind(id, body.project_id || 'default', body.title || '새 에피소드', body.episode_number || 1, user.name || user.email || user.id || 'unknown').run();
+    ).bind(id, body.project_id || 'default', body.title || '???먰뵾?뚮뱶', body.episode_number || 1, user.name || user.email || user.id || 'unknown').run();
     return json({ success: true, id });
   }
 
-  // GET /api/storyboard/episodes — 에피소드 목록
+  // GET /api/storyboard/episodes ???먰뵾?뚮뱶 紐⑸줉
   if (path === '/api/storyboard/episodes' && method === 'GET') {
     const url = new URL(request.url);
     const projectId = url.searchParams.get('project_id') || 'default';
@@ -5396,7 +5590,7 @@ async function handleStoryboardAPI(path, request, env) {
     return json({ success: true, episodes: rows.results });
   }
 
-  // GET /api/storyboard/episodes/:id — 에피소드 상세
+  // GET /api/storyboard/episodes/:id ???먰뵾?뚮뱶 ?곸꽭
   const epDetailMatch = path.match(/^\/api\/storyboard\/episodes\/([^/]+)$/);
   if (epDetailMatch && method === 'GET') {
     const row = await db.prepare('SELECT * FROM sb_episodes WHERE id=?').bind(epDetailMatch[1]).first();
@@ -5404,7 +5598,7 @@ async function handleStoryboardAPI(path, request, env) {
     return json({ success: true, episode: row });
   }
 
-  // PUT /api/storyboard/episodes/:id — 에피소드 수정
+  // PUT /api/storyboard/episodes/:id ???먰뵾?뚮뱶 ?섏젙
   if (epDetailMatch && method === 'PUT') {
     const body = await request.json();
     const sets = [];
@@ -5420,12 +5614,12 @@ async function handleStoryboardAPI(path, request, env) {
 
   // ===== CUTS =====
 
-  // POST /api/storyboard/cuts — 컷 생성 (단일 또는 벌크)
+  // POST /api/storyboard/cuts ??而??앹꽦 (?⑥씪 ?먮뒗 踰뚰겕)
   if (path === '/api/storyboard/cuts' && method === 'POST') {
     const body = await request.json();
 
     if (body.cuts && Array.isArray(body.cuts)) {
-      // 벌크 생성
+      // 踰뚰겕 ?앹꽦
       const stmts = body.cuts.map((cut, i) => {
         const id = sbId('CUT');
         return db.prepare(
@@ -5434,13 +5628,13 @@ async function handleStoryboardAPI(path, request, env) {
         ).bind(id, cut.episode_id || body.episode_id, cut.cut_number || i + 1, cut.shot_id || null, cut.dept || 'Animation', cut.description || '');
       });
       await db.batch(stmts);
-      // 에피소드 컷 수 업데이트
+      // ?먰뵾?뚮뱶 而????낅뜲?댄듃
       await db.prepare('UPDATE sb_episodes SET total_cuts=(SELECT COUNT(*) FROM sb_cuts WHERE episode_id=?), updated_at=unixepoch() WHERE id=?')
         .bind(body.episode_id, body.episode_id).run();
       return json({ success: true, count: body.cuts.length });
     }
 
-    // 단일 생성
+    // ?⑥씪 ?앹꽦
     const id = sbId('CUT');
     await db.prepare(
       `INSERT INTO sb_cuts (id, episode_id, cut_number, shot_id, dept, description)
@@ -5451,8 +5645,8 @@ async function handleStoryboardAPI(path, request, env) {
     return json({ success: true, id });
   }
 
-  // GET /api/storyboard/cuts?episode_id=xxx — 컷 목록 (버전 포함)
-  // GET /api/storyboard/cuts?project=xxx — 프로젝트 전체 컷 (AI 모듈용)
+  // GET /api/storyboard/cuts?episode_id=xxx ??而?紐⑸줉 (踰꾩쟾 ?ы븿)
+  // GET /api/storyboard/cuts?project=xxx ???꾨줈?앺듃 ?꾩껜 而?(AI 紐⑤뱢??
   if (path === '/api/storyboard/cuts' && method === 'GET') {
     const url = new URL(request.url);
     const episodeId = url.searchParams.get('episode_id');
@@ -5468,10 +5662,10 @@ async function handleStoryboardAPI(path, request, env) {
         'SELECT c.* FROM sb_cuts c LEFT JOIN sb_episodes e ON c.episode_id=e.id WHERE e.project_id=? OR c.project_id=? ORDER BY c.episode_id, c.cut_number'
       ).bind(projectId, projectId).all();
     } else {
-      return json({ error: 'episode_id 또는 project 필수' }, 400);
+      return json({ error: 'episode_id ?먮뒗 project ?꾩닔' }, 400);
     }
 
-    // 각 컷의 최신 버전 정보 포함
+    // 媛?而룹쓽 理쒖떊 踰꾩쟾 ?뺣낫 ?ы븿
     const cutIds = cuts.results.map(c => c.id);
     let versions = [];
     if (cutIds.length > 0) {
@@ -5481,7 +5675,7 @@ async function handleStoryboardAPI(path, request, env) {
       ).bind(...cutIds).all()).results;
     }
 
-    // 컷별 코멘트 수
+    // 而룸퀎 肄붾찘????
     let commentCounts = [];
     if (cutIds.length > 0) {
       const placeholders = cutIds.map(() => '?').join(',');
@@ -5499,7 +5693,7 @@ async function handleStoryboardAPI(path, request, env) {
     return json({ success: true, cuts: cutData });
   }
 
-  // GET /api/storyboard/cuts/:id — 컷 상세 (버전 + 코멘트 포함)
+  // GET /api/storyboard/cuts/:id ??而??곸꽭 (踰꾩쟾 + 肄붾찘???ы븿)
   const cutDetailMatch = path.match(/^\/api\/storyboard\/cuts\/([^/]+)$/);
   if (cutDetailMatch && method === 'GET') {
     const cut = await db.prepare('SELECT * FROM sb_cuts WHERE id=?').bind(cutDetailMatch[1]).first();
@@ -5509,7 +5703,7 @@ async function handleStoryboardAPI(path, request, env) {
     return json({ success: true, cut: { ...cut, versions, comments } });
   }
 
-  // PUT /api/storyboard/cuts/:id — 컷 상태 업데이트
+  // PUT /api/storyboard/cuts/:id ??而??곹깭 ?낅뜲?댄듃
   const cutUpdateMatch = path.match(/^\/api\/storyboard\/cuts\/([^/]+)$/);
   if (cutUpdateMatch && method === 'PUT') {
     const body = await request.json();
@@ -5529,38 +5723,38 @@ async function handleStoryboardAPI(path, request, env) {
     return json({ success: true });
   }
 
-  // ===== VERSIONS (영상 업로드) =====
+  // ===== VERSIONS (?곸긽 ?낅줈?? =====
 
-  // POST /api/storyboard/upload — 플레이블라스트 영상 업로드 + R2 저장
+  // POST /api/storyboard/upload ???뚮젅?대툝?쇱뒪???곸긽 ?낅줈??+ R2 ???
   if (path === '/api/storyboard/upload' && method === 'POST') {
     const contentType = request.headers.get('content-type') || '';
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const file = formData.get('file');
-      if (!file) return json({ error: 'file 필수' }, 400);
+      if (!file) return json({ error: 'file ?꾩닔' }, 400);
 
       const cutId = formData.get('cut_id');
       const episodeId = formData.get('episode_id');
       const versionNum = parseInt(formData.get('version') || '1');
-      if (!cutId) return json({ error: 'cut_id 필수' }, 400);
+      if (!cutId) return json({ error: 'cut_id ?꾩닔' }, 400);
 
       const filename = file.name || `playblast_${Date.now()}.mp4`;
       const r2Key = `storyboard/${episodeId || 'default'}/${cutId}/${versionNum}_${filename}`;
 
-      // R2 업로드
+      // R2 ?낅줈??
       await env.ASSETS.put(r2Key, file, {
         httpMetadata: { contentType: file.type || 'video/mp4' }
       });
 
-      // DB 저장
+      // DB ???
       const id = sbId('VER');
       await db.prepare(
         `INSERT INTO sb_versions (id, cut_id, version_number, r2_key, filename, file_size, uploaded_by)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
       ).bind(id, cutId, versionNum, r2Key, filename, file.size || 0, user.name || user.email || user.id || 'unknown').run();
 
-      // 컷 duration 업데이트 (float로 전달된 경우)
+      // 而?duration ?낅뜲?댄듃 (float濡??꾨떖??寃쎌슦)
       const dur = parseFloat(formData.get('duration') || '0');
       if (dur > 0) {
         await db.prepare('UPDATE sb_cuts SET duration=?, updated_at=unixepoch() WHERE id=?').bind(dur, cutId).run();
@@ -5576,13 +5770,13 @@ async function handleStoryboardAPI(path, request, env) {
       }, 201);
     }
 
-    // Raw body 업로드 (큰 파일)
+    // Raw body ?낅줈??(???뚯씪)
     const url = new URL(request.url);
     const cutId = url.searchParams.get('cut_id');
     const versionNum = parseInt(url.searchParams.get('version') || '1');
     const filename = url.searchParams.get('filename') || `playblast_${Date.now()}.mp4`;
     const episodeId = url.searchParams.get('episode_id') || 'default';
-    if (!cutId) return json({ error: 'cut_id 필수' }, 400);
+    if (!cutId) return json({ error: 'cut_id ?꾩닔' }, 400);
 
     const r2Key = `storyboard/${episodeId}/${cutId}/${versionNum}_${filename}`;
     const body = await request.arrayBuffer();
@@ -5602,23 +5796,23 @@ async function handleStoryboardAPI(path, request, env) {
     }, 201);
   }
 
-  // POST /api/storyboard/upload-bulk — 여러 컷 일괄 업로드 (멀티파트)
+  // POST /api/storyboard/upload-bulk ???щ윭 而??쇨큵 ?낅줈??(硫?고뙆??
   if (path === '/api/storyboard/upload-bulk' && method === 'POST') {
     const formData = await request.formData();
     const episodeId = formData.get('episode_id');
-    if (!episodeId) return json({ error: 'episode_id 필수' }, 400);
+    if (!episodeId) return json({ error: 'episode_id ?꾩닔' }, 400);
 
     const results = [];
-    // 파일 이름 패턴: CUT_001_v1.mp4, CUT_002_v2.mp4 등
+    // ?뚯씪 ?대쫫 ?⑦꽩: CUT_001_v1.mp4, CUT_002_v2.mp4 ??
     for (const [key, file] of formData.entries()) {
       if (key === 'episode_id') continue;
       if (!(file instanceof File)) continue;
 
-      const match = file.name.match(/(?:CUT|cut|컷)[_\s]*(\d+)[_\s]*v?(\d+)?/i);
+      const match = file.name.match(/(?:CUT|cut)[_\s]*(\d+)[_\s]*v?(\d+)?/i);
       const cutNum = match ? parseInt(match[1]) : results.length + 1;
       const verNum = match && match[2] ? parseInt(match[2]) : 1;
 
-      // 컷이 없으면 자동 생성
+      // 而룹씠 ?놁쑝硫??먮룞 ?앹꽦
       let cut = await db.prepare('SELECT id FROM sb_cuts WHERE episode_id=? AND cut_number=?').bind(episodeId, cutNum).first();
       if (!cut) {
         const cutId = sbId('CUT');
@@ -5637,14 +5831,14 @@ async function handleStoryboardAPI(path, request, env) {
       results.push({ cut_id: cut.id, cut_number: cutNum, version: verNum, filename: file.name });
     }
 
-    // 에피소드 컷 수 업데이트
+    // ?먰뵾?뚮뱶 而????낅뜲?댄듃
     await db.prepare('UPDATE sb_episodes SET total_cuts=(SELECT COUNT(*) FROM sb_cuts WHERE episode_id=?), updated_at=unixepoch() WHERE id=?')
       .bind(episodeId, episodeId).run();
 
     return json({ success: true, uploaded: results, count: results.length });
   }
 
-  // GET /api/storyboard/stream/:r2key — 비디오 스트리밍 (Range 지원)
+  // GET /api/storyboard/stream/:r2key ??鍮꾨뵒???ㅽ듃由щ컢 (Range 吏??
   if (path.startsWith('/api/storyboard/stream/') && method === 'GET') {
     const r2Key = path.replace('/api/storyboard/stream/', '');
     const rangeHeader = request.headers.get('Range');
@@ -5671,10 +5865,10 @@ async function handleStoryboardAPI(path, request, env) {
 
   // ===== COMMENTS =====
 
-  // POST /api/storyboard/comments — 코멘트 생성
+  // POST /api/storyboard/comments ??肄붾찘???앹꽦
   if (path === '/api/storyboard/comments' && method === 'POST') {
     const body = await request.json();
-    if (!body.cut_id || !body.text) return json({ error: 'cut_id, text 필수' }, 400);
+    if (!body.cut_id || !body.text) return json({ error: 'cut_id, text ?꾩닔' }, 400);
 
     const id = sbId('CMT');
     await db.prepare(
@@ -5686,11 +5880,11 @@ async function handleStoryboardAPI(path, request, env) {
     return json({ success: true, id });
   }
 
-  // GET /api/storyboard/comments?cut_id=xxx — 코멘트 조회
+  // GET /api/storyboard/comments?cut_id=xxx ??肄붾찘??議고쉶
   if (path === '/api/storyboard/comments' && method === 'GET') {
     const url = new URL(request.url);
     const cutId = url.searchParams.get('cut_id');
-    if (!cutId) return json({ error: 'cut_id 필수' }, 400);
+    if (!cutId) return json({ error: 'cut_id ?꾩닔' }, 400);
 
     const versionId = url.searchParams.get('version_id');
     let q = 'SELECT * FROM sb_comments WHERE cut_id=?';
@@ -5702,7 +5896,7 @@ async function handleStoryboardAPI(path, request, env) {
     return json({ success: true, comments: rows.results });
   }
 
-  // PUT /api/storyboard/comments/:id — 코멘트 상태 변경 (해결/미해결)
+  // PUT /api/storyboard/comments/:id ??肄붾찘???곹깭 蹂寃?(?닿껐/誘명빐寃?
   const cmtUpdateMatch = path.match(/^\/api\/storyboard\/comments\/([^/]+)$/);
   if (cmtUpdateMatch && method === 'PUT') {
     const body = await request.json();
@@ -5714,11 +5908,11 @@ async function handleStoryboardAPI(path, request, env) {
 
   // ===== STATS =====
 
-  // GET /api/storyboard/stats?episode_id=xxx — 에피소드 통계
+  // GET /api/storyboard/stats?episode_id=xxx ???먰뵾?뚮뱶 ?듦퀎
   if (path === '/api/storyboard/stats' && method === 'GET') {
     const url = new URL(request.url);
     const episodeId = url.searchParams.get('episode_id');
-    if (!episodeId) return json({ error: 'episode_id 필수' }, 400);
+    if (!episodeId) return json({ error: 'episode_id ?꾩닔' }, 400);
 
     const total = await db.prepare('SELECT COUNT(*) as c FROM sb_cuts WHERE episode_id=?').bind(episodeId).first();
     const byStatus = await db.prepare(
@@ -5746,15 +5940,15 @@ async function handleStoryboardAPI(path, request, env) {
     });
   }
 
-  return json({ error: '스토리보드 API 엔드포인트를 찾을 수 없습니다: ' + path }, 404);
+  return json({ error: '?ㅽ넗由щ낫??API ?붾뱶?ъ씤?몃? 李얠쓣 ???놁뒿?덈떎: ' + path }, 404);
 }
 
 // ===================================================================
-// Google Sheets 연동 API
-// 구글시트 데이터를 D1 캐시로 동기화하여 대시보드에 표시
+// Google Sheets ?곕룞 API
+// 援ш??쒗듃 ?곗씠?곕? D1 罹먯떆濡??숆린?뷀븯????쒕낫?쒖뿉 ?쒖떆
 // ===================================================================
 
-// TBO 프로젝트 구글시트 ID 매핑
+// TBO ?꾨줈?앺듃 援ш??쒗듃 ID 留ㅽ븨
 const TBO_SHEETS = {
   assets:     '12P26Fv8s9qlh_YjDqmZSVuZQIA9JEhdzxaA6GDohxvk',
   ani:        '1MZ-2FVtwCdjsHG4rj9dvpfmX-McVe7aMi-wWoKi4SSI',
@@ -5917,7 +6111,7 @@ async function handleSheetsAPI(path, request, env) {
   const db = env.DB;
   const url = new URL(request.url);
 
-  // 테이블 생성
+  // ?뚯씠釉??앹꽦
   await db.prepare(`CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER DEFAULT (unixepoch()))`).run();
   await db.prepare(`CREATE TABLE IF NOT EXISTS sheets_cache (
     sheet_key TEXT, tab_name TEXT, data TEXT, row_count INTEGER DEFAULT 0,
@@ -5938,17 +6132,17 @@ async function handleSheetsAPI(path, request, env) {
     updated_at INTEGER DEFAULT (unixepoch())
   )`).run();
 
-  // Google API 키 조회
+  // Google API ??議고쉶
   async function getGoogleApiKey() {
     return env.GOOGLE_API_KEY || null;
   }
 
-  // POST /api/sheets/config — Google API 키 저장
+  // POST /api/sheets/config ??Google API ?????
   if (path === '/api/sheets/config' && method === 'POST') {
     return json({ error: 'Google API key must be configured as Worker Secret GOOGLE_API_KEY. D1 app_config storage is disabled.' }, 410);
   }
 
-  // GET /api/sheets/config — 키 설정 여부
+  // GET /api/sheets/config ?????ㅼ젙 ?щ?
   if (path === '/api/sheets/config' && method === 'GET') {
     const key = await getGoogleApiKey();
     return json({
@@ -5960,7 +6154,7 @@ async function handleSheetsAPI(path, request, env) {
     });
   }
 
-  // GET/POST /api/sheets/writeback-config — Apps Script writeback bridge config.
+  // GET/POST /api/sheets/writeback-config ??Apps Script writeback bridge config.
   if (path === '/api/sheets/writeback-config') {
     const user = await authenticateAny(request, env);
     const role = String(user?.role || '').toLowerCase();
@@ -6045,26 +6239,26 @@ async function handleSheetsAPI(path, request, env) {
     });
   }
 
-  // POST /api/sheets/sync — 특정 시트 또는 전체 동기화
+  // POST /api/sheets/sync ???뱀젙 ?쒗듃 ?먮뒗 ?꾩껜 ?숆린??
   if (path === '/api/sheets/sync' && method === 'POST') {
     const apiKey = await getGoogleApiKey();
-    if (!apiKey) return json({ error: 'Google API 키 미설정. /api/sheets/config 에서 설정하세요.' }, 400);
+    if (!apiKey) return json({ error: 'Google API ??誘몄꽕?? /api/sheets/config ?먯꽌 ?ㅼ젙?섏꽭??' }, 400);
 
     const body = await request.json().catch(() => ({}));
-    const targetSheet = body.sheet; // 특정 시트만 동기화 (없으면 전체)
-    const targetTab = body.tab; // 특정 탭만
+    const targetSheet = body.sheet; // ?뱀젙 ?쒗듃留??숆린??(?놁쑝硫??꾩껜)
+    const targetTab = body.tab; // ?뱀젙 ??쭔
 
     const sheetsToSync = targetSheet ? { [targetSheet]: TBO_SHEETS[targetSheet] } : TBO_SHEETS;
-    if (targetSheet && !TBO_SHEETS[targetSheet]) return json({ error: '알 수 없는 시트: ' + targetSheet + '. 가능: ' + Object.keys(TBO_SHEETS).join(',') }, 400);
+    if (targetSheet && !TBO_SHEETS[targetSheet]) return json({ error: '?????녿뒗 ?쒗듃: ' + targetSheet + '. 媛?? ' + Object.keys(TBO_SHEETS).join(',') }, 400);
 
     const results = {};
     for (const [key, spreadsheetId] of Object.entries(sheetsToSync)) {
       try {
-        // 먼저 시트 메타데이터로 탭 목록 가져오기
+        // 癒쇱? ?쒗듃 硫뷀??곗씠?곕줈 ??紐⑸줉 媛?몄삤湲?
         const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title&key=${apiKey}`;
         const metaResp = await fetch(metaUrl);
         if (!metaResp.ok) {
-          results[key] = { error: `메타데이터 실패 (${metaResp.status})`, detail: await metaResp.text() };
+          results[key] = { error: `硫뷀??곗씠???ㅽ뙣 (${metaResp.status})`, detail: await metaResp.text() };
           continue;
         }
         const meta = await metaResp.json();
@@ -6072,21 +6266,20 @@ async function handleSheetsAPI(path, request, env) {
 
         const tabsToSync = targetTab ? tabs.filter(t => t === targetTab) : tabs;
         const tabResults = {};
-        const MAX_BATCH = 40; // CF Workers 서브리퀘스트 제한(50) 대응
-
+        const MAX_BATCH = 40; // CF Workers ?쒕툕由ы섏뒪???쒗븳(50) ???
         for (let i = 0; i < tabsToSync.length && i < MAX_BATCH; i++) {
           const tab = tabsToSync[i];
           try {
             const dataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("'" + tab + "'")}?key=${apiKey}`;
             const dataResp = await fetch(dataUrl);
             if (!dataResp.ok) {
-              tabResults[tab] = { error: `데이터 실패 (${dataResp.status})` };
+              tabResults[tab] = { error: `?곗씠???ㅽ뙣 (${dataResp.status})` };
               continue;
             }
             const sheetData = await dataResp.json();
             const rows = sheetData.values || [];
 
-            // D1 캐시에 저장
+            // D1 罹먯떆?????
             await db.prepare(
               "INSERT OR REPLACE INTO sheets_cache (sheet_key, tab_name, data, row_count, synced_at) VALUES (?,?,?,?,unixepoch())"
             ).bind(key, tab, JSON.stringify(rows), rows.length).run();
@@ -6106,14 +6299,14 @@ async function handleSheetsAPI(path, request, env) {
     return json({ success: true, results });
   }
 
-  // GET /api/sheets/data — 캐시된 시트 데이터 조회
+  // GET /api/sheets/data ??罹먯떆???쒗듃 ?곗씠??議고쉶
   if (path === '/api/sheets/data' && method === 'GET') {
     const sheetKey = url.searchParams.get('sheet');
     const tab = url.searchParams.get('tab');
     const summary = url.searchParams.get('summary') === 'true';
 
     if (!sheetKey) {
-      // 전체 캐시 목록 반환
+      // ?꾩껜 罹먯떆 紐⑸줉 諛섑솚
       const all = await db.prepare("SELECT sheet_key, tab_name, row_count, synced_at FROM sheets_cache ORDER BY sheet_key, tab_name").all();
       return json({ success: true, cache: all.results });
     }
@@ -6123,10 +6316,10 @@ async function handleSheetsAPI(path, request, env) {
     if (tab) { q += " AND tab_name=?"; params.push(tab); }
 
     const rows = await db.prepare(q).bind(...params).all();
-    if (!rows.results.length) return json({ error: '캐시 없음. /api/sheets/sync 로 동기화하세요.' }, 404);
+    if (!rows.results.length) return json({ error: '罹먯떆 ?놁쓬. /api/sheets/sync 濡??숆린?뷀븯?몄슂.' }, 404);
 
     if (summary) {
-      // 요약 모드: 헤더 + 행 수만
+      // ?붿빟 紐⑤뱶: ?ㅻ뜑 + ???섎쭔
       const summaryData = rows.results.map(r => {
         const parsed = JSON.parse(r.data);
         return {
@@ -6140,7 +6333,7 @@ async function handleSheetsAPI(path, request, env) {
       return json({ success: true, data: summaryData });
     }
 
-    // 전체 데이터
+    // ?꾩껜 ?곗씠??
     const result = rows.results.map(r => ({
       sheet_key: r.sheet_key,
       tab_name: r.tab_name,
@@ -6151,10 +6344,10 @@ async function handleSheetsAPI(path, request, env) {
     return json({ success: true, data: result });
   }
 
-  // GET /api/sheets/overview — 프로덕션 전체 현황 요약 (대시보드용)
+  // GET /api/sheets/overview ???꾨줈?뺤뀡 ?꾩껜 ?꾪솴 ?붿빟 (??쒕낫?쒖슜)
   if (path === '/api/sheets/overview' && method === 'GET') {
     const allCache = await db.prepare("SELECT sheet_key, tab_name, data, row_count, synced_at FROM sheets_cache").all();
-    if (!allCache.results.length) return json({ error: '캐시 없음. 먼저 /api/sheets/sync 로 동기화하세요.' }, 404);
+    if (!allCache.results.length) return json({ error: '罹먯떆 ?놁쓬. 癒쇱? /api/sheets/sync 濡??숆린?뷀븯?몄슂.' }, 404);
 
     const overview = {};
     let lastSync = 0;
@@ -6235,8 +6428,7 @@ async function handleSheetsAPI(path, request, env) {
       });
       if (result.queued) {
         await db.prepare(
-          `UPDATE sheet_write_queue SET status='pending', attempts=attempts+1, error=?, updated_at=unixepoch()
-           WHERE id=?`
+          `UPDATE sheet_write_queue SET status='pending', attempts=attempts+1, error=?, updated_at=unixepoch() WHERE id=?`
         ).bind(result.reason, id).run();
         return json({ success: true, id, status: 'queued', reason: result.reason }, 202);
       }
@@ -6281,13 +6473,12 @@ async function handleSheetsAPI(path, request, env) {
     return json({ success: true, writes: rows.results || [] });
   }
 
-  return json({ error: 'Sheets API 엔드포인트를 찾을 수 없습니다: ' + path }, 404);
+  return json({ error: 'Sheets API ?붾뱶?ъ씤?몃? 李얠쓣 ???놁뒿?덈떎: ' + path }, 404);
 }
 
 // ===================================================================
-// Seedance 2.0 AI 렌더링 API (Maya Playblast → AI Video)
-// BytePlus ModelArk API + D1 작업 추적 + R2 결과 저장
-// ===================================================================
+// Seedance 2.0 AI ?뚮뜑留?API (Maya Playblast ??AI Video)
+// BytePlus ModelArk API + D1 ?묒뾽 異붿쟻 + R2 寃곌낵 ???// ===================================================================
 
 async function initSeedanceTables(db) {
   await db.prepare(`CREATE TABLE IF NOT EXISTS seedance_jobs (
@@ -6328,20 +6519,57 @@ async function initSeedanceTables(db) {
   )`).run();
 }
 
+async function initSeedancePipelineAssets(db) {
+  const columns = [
+    ['category', 'TEXT'],
+    ['storage_mode', "TEXT DEFAULT 'r2'"],
+    ['file_key', 'TEXT'],
+    ['thumbnail_key', 'TEXT'],
+    ['thumbnail_r2_key', 'TEXT'],
+    ['mime_type', 'TEXT'],
+    ['ext', 'TEXT'],
+    ['ai_source', 'TEXT'],
+    ['ai_model', 'TEXT'],
+    ['ai_prompt', 'TEXT'],
+    ['archived', 'INTEGER DEFAULT 0'],
+    ['archived_at', 'INTEGER'],
+    ['archived_by', 'TEXT'],
+    ['created_at', 'INTEGER DEFAULT (unixepoch())'],
+    ['updated_at', 'INTEGER DEFAULT (unixepoch())']
+  ];
+  let existingColumns = null;
+  try {
+    const info = await db.prepare('PRAGMA table_info(assets)').all();
+    existingColumns = new Set((info.results || []).map(row => String(row.name || '').toLowerCase()));
+  } catch (_) {
+    existingColumns = null;
+  }
+  for (const [name, definition] of columns) {
+    if (existingColumns && existingColumns.has(name.toLowerCase())) continue;
+    try {
+      await db.prepare(`ALTER TABLE assets ADD COLUMN ${name} ${definition}`).run();
+    } catch (err) {
+      if (!String(err?.message || err).toLowerCase().includes('duplicate column')) throw err;
+    }
+  }
+  await db.prepare("CREATE INDEX IF NOT EXISTS idx_assets_seedance_pipeline ON assets(project_id, category, type, archived, created_at)").run();
+}
+
 async function handleSeedanceAPI(path, request, env) {
   const method = request.method;
   const db = env.DB;
   await initSeedanceTables(db);
+  await initSeedancePipelineAssets(db);
 
   // BytePlus ModelArk API
   const BYTEPLUS_BASE = 'https://ark.ap-southeast.bytepluses.com/api/v3';
 
-  // API 키 조회: Worker Secret 전용
+  // API ??議고쉶: Worker Secret ?꾩슜
   async function getBytePlusKey() {
     return env.BYTEPLUS_API_KEY || null;
   }
 
-  // BytePlus API 공통 헤더
+  // BytePlus API 怨듯넻 ?ㅻ뜑
   function byteHeaders(apiKey) {
     return {
       'Content-Type': 'application/json',
@@ -6441,6 +6669,71 @@ async function handleSeedanceAPI(path, request, env) {
     }
   }
 
+  const PIPELINE_ASSET_CATEGORIES = new Set(['character', 'background', 'playblast', 'firstframe']);
+
+  function normalizePipelineCategory(value) {
+    const category = String(value || '').trim().toLowerCase();
+    return PIPELINE_ASSET_CATEGORIES.has(category) ? category : '';
+  }
+
+  function normalizePipelineProjectId(value) {
+    return String(value || 'tbo').trim().replace(/[^A-Za-z0-9_.-]+/g, '_').slice(0, 80) || 'tbo';
+  }
+
+  function normalizePipelineAssetName(value, fallback) {
+    return (String(value || fallback || 'pipeline_asset').trim().replace(/[<>:"\\|?*\u0000-\u001F]+/g, '_').replace(/\s+/g, ' ') || 'pipeline_asset').slice(0, 160);
+  }
+
+  function normalizePipelineExt(name, mimeType) {
+    const fromName = String(name || '').split('.').pop()?.toLowerCase() || '';
+    const allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'webm'];
+    if (allowed.includes(fromName)) return fromName === 'jpeg' ? 'jpg' : fromName;
+    if (mimeType === 'image/png') return 'png';
+    if (mimeType === 'image/webp') return 'webp';
+    if (mimeType === 'image/gif') return 'gif';
+    if (mimeType === 'video/mp4') return 'mp4';
+    if (mimeType === 'video/quicktime') return 'mov';
+    if (mimeType === 'video/webm') return 'webm';
+    return 'bin';
+  }
+
+  function isAllowedPipelineUpload(category, mimeType, ext) {
+    if (category === 'playblast') return /^video\//.test(mimeType) || ['mp4', 'mov', 'webm'].includes(ext);
+    return /^image\//.test(mimeType) || ['jpg', 'png', 'webp', 'gif'].includes(ext);
+  }
+
+  function nextPipelineVersion(value) {
+    const match = String(value || 'v00').match(/^v(\d+)$/i);
+    const n = match ? parseInt(match[1], 10) + 1 : 1;
+    return 'v' + String(Math.max(1, n)).padStart(2, '0');
+  }
+
+  function pipelineAssetToPublic(row) {
+    const fileKey = row.file_key || '';
+    const thumbKey = row.thumbnail_key || row.thumbnail_r2_key || '';
+    return {
+      id: row.id,
+      project_id: row.project_id,
+      category: row.category,
+      type: row.type,
+      name: row.name,
+      status: row.status,
+      version: row.version || 'v01',
+      storage_mode: row.storage_mode || 'r2',
+      file_key: fileKey,
+      thumbnail_key: thumbKey,
+      mime_type: row.mime_type || '',
+      ext: row.ext || '',
+      ai_source: row.ai_source || '',
+      ai_model: row.ai_model || '',
+      ai_prompt: row.ai_prompt || '',
+      url: fileKey ? `/api/seedance/pipeline/file/${encodeURIComponent(row.id)}` : '',
+      thumbnail_url: thumbKey ? `/api/seedance/pipeline/file/${encodeURIComponent(row.id)}?kind=thumb` : '',
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  }
+
   function characterRowToPublic(row) {
     const files = parseCharacterFiles(row.files_json);
     return {
@@ -6474,6 +6767,157 @@ async function handleSeedanceAPI(path, request, env) {
     return { user };
   }
 
+  // GET /api/seedance/projects - active project picker for Seedance pipeline UI.
+  if (path === '/api/seedance/projects' && method === 'GET') {
+    const auth = await requireSeedanceAdmin();
+    if (auth.error) return auth.error;
+    let rows = [];
+    try {
+      const result = await db.prepare('SELECT * FROM projects WHERE COALESCE(archived, 0)=0 ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 100').all();
+      rows = result.results || [];
+    } catch (_) {
+      try {
+        const result = await db.prepare("SELECT DISTINCT project_id as id FROM assets WHERE project_id IS NOT NULL AND project_id != '' ORDER BY project_id LIMIT 100").all();
+        rows = result.results || [];
+      } catch (__) {
+        rows = [];
+      }
+    }
+    if (!rows.length) rows = [{ id: 'tbo', code: 'TBO', name: 'TURBO ONE' }];
+    const projects = rows.map(row => {
+      const id = String(row.id || row.project_id || row.code || 'tbo');
+      return {
+        id,
+        name: row.name || row.title || row.project_name || row.code || id,
+        code: row.code || row.project_code || id,
+        thumbnail_url: row.thumbnail_url || row.thumbnail || row.thumbnail_r2_key ? (row.thumbnail_url || row.thumbnail || `/r2/download/${row.thumbnail_r2_key}`) : ''
+      };
+    });
+    return json({ success: true, projects });
+  }
+
+  // GET /api/seedance/pipeline/file/:id - safe R2 proxy for pipeline asset originals/thumbs.
+  const pipelineFileMatch = path.match(/^\/api\/seedance\/pipeline\/file\/([^/]+)$/);
+  if (pipelineFileMatch && method === 'GET') {
+    const auth = await requireSeedanceAdmin();
+    if (auth.error) return auth.error;
+    if (!env.ASSETS) return json({ error: 'R2 ASSETS binding missing' }, 500);
+    const url = new URL(request.url);
+    const assetId = decodeURIComponent(pipelineFileMatch[1]);
+    const kind = url.searchParams.get('kind') === 'thumb' ? 'thumb' : 'original';
+    const row = await db.prepare("SELECT * FROM assets WHERE id=? AND type='pipeline' AND COALESCE(archived, 0)=0").bind(assetId).first();
+    if (!row) return json({ error: 'Pipeline asset not found' }, 404);
+    const key = kind === 'thumb' ? (row.thumbnail_key || row.thumbnail_r2_key || row.file_key) : row.file_key;
+    if (!key) return json({ error: 'Pipeline asset has no R2 key' }, 404);
+    const object = await env.ASSETS.get(key);
+    if (!object) return json({ error: 'R2 object not found', key }, 404);
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set('Cache-Control', 'public, max-age=3600');
+    headers.set('Access-Control-Allow-Origin', '*');
+    return new Response(object.body, { status: 200, headers });
+  }
+
+  // GET /api/seedance/pipeline/assets?project_id=&category=
+  if (path === '/api/seedance/pipeline/assets' && method === 'GET') {
+    const auth = await requireSeedanceAdmin();
+    if (auth.error) return auth.error;
+    const url = new URL(request.url);
+    const projectId = normalizePipelineProjectId(url.searchParams.get('project_id'));
+    const category = normalizePipelineCategory(url.searchParams.get('category'));
+    if (!category) return json({ error: 'category must be one of character, background, playblast, firstframe' }, 400);
+    const rows = await db.prepare(`
+      SELECT * FROM assets
+      WHERE project_id=? AND category=? AND type='pipeline' AND COALESCE(archived, 0)=0
+      ORDER BY COALESCE(updated_at, created_at) DESC
+      LIMIT 500
+    `).bind(projectId, category).all();
+    return json({ success: true, assets: (rows.results || []).map(pipelineAssetToPublic) });
+  }
+
+  // POST /api/seedance/pipeline/assets - upload project-specific pipeline asset to R2 and assets.
+  if (path === '/api/seedance/pipeline/assets' && method === 'POST') {
+    const auth = await requireSeedanceAdmin();
+    if (auth.error) return auth.error;
+    if (!env.ASSETS) return json({ error: 'R2 ASSETS binding missing' }, 500);
+    const formData = await request.formData();
+    const projectId = normalizePipelineProjectId(formData.get('project_id'));
+    const category = normalizePipelineCategory(formData.get('category'));
+    if (!category) return json({ error: 'category must be one of character, background, playblast, firstframe' }, 400);
+    const file = formData.get('file');
+    if (!file || typeof file.arrayBuffer !== 'function') return json({ error: 'file is required' }, 400);
+    const mimeType = file.type || 'application/octet-stream';
+    const ext = normalizePipelineExt(file.name, mimeType);
+    if (!isAllowedPipelineUpload(category, mimeType, ext)) {
+      return json({ error: category === 'playblast' ? 'playblast requires a video file' : `${category} requires an image file` }, 400);
+    }
+    const assetId = 'pipe_' + crypto.randomUUID().replace(/-/g, '').slice(0, 18);
+    const fileKey = `pipeline/${projectId}/${category}/${assetId}.${ext}`;
+    const fileBody = await file.arrayBuffer();
+    await env.ASSETS.put(fileKey, fileBody, { httpMetadata: { contentType: mimeType } });
+    const thumbnailKey = mimeType.startsWith('image/') ? fileKey : '';
+    const now = Math.floor(Date.now() / 1000);
+    const actor = auth.user.email || auth.user.name || auth.user.id || 'seedance-admin';
+    const name = normalizePipelineAssetName(formData.get('name'), file.name);
+    await db.prepare(`
+      INSERT INTO assets
+        (id, project_id, category, type, storage_mode, file_key, thumbnail_key, thumbnail_r2_key, mime_type, ext, version, name, status, archived, created_at, updated_at, assignee, note)
+      VALUES
+        (?, ?, ?, 'pipeline', 'r2', ?, ?, ?, ?, ?, 'v01', ?, 'ready', 0, ?, ?, ?, ?)
+    `).bind(assetId, projectId, category, fileKey, thumbnailKey, thumbnailKey, mimeType, ext, name, now, now, actor, 'Seedance pipeline asset').run();
+    const row = await db.prepare('SELECT * FROM assets WHERE id=?').bind(assetId).first();
+    return json({ success: true, asset: pipelineAssetToPublic(row) }, 201);
+  }
+
+  // POST /api/seedance/pipeline/assets/:id/replace - replace R2 file, keep asset id, bump version.
+  const pipelineReplaceMatch = path.match(/^\/api\/seedance\/pipeline\/assets\/([^/]+)\/replace$/);
+  if (pipelineReplaceMatch && method === 'POST') {
+    const auth = await requireSeedanceAdmin();
+    if (auth.error) return auth.error;
+    if (!env.ASSETS) return json({ error: 'R2 ASSETS binding missing' }, 500);
+    const assetId = decodeURIComponent(pipelineReplaceMatch[1]);
+    const existing = await db.prepare("SELECT * FROM assets WHERE id=? AND type='pipeline' AND COALESCE(archived, 0)=0").bind(assetId).first();
+    if (!existing) return json({ error: 'Pipeline asset not found' }, 404);
+    const category = normalizePipelineCategory(existing.category);
+    if (!category) return json({ error: 'Pipeline asset category is invalid' }, 400);
+    const formData = await request.formData();
+    const file = formData.get('file');
+    if (!file || typeof file.arrayBuffer !== 'function') return json({ error: 'file is required' }, 400);
+    const mimeType = file.type || 'application/octet-stream';
+    const ext = normalizePipelineExt(file.name, mimeType);
+    if (!isAllowedPipelineUpload(category, mimeType, ext)) {
+      return json({ error: category === 'playblast' ? 'playblast requires a video file' : `${category} requires an image file` }, 400);
+    }
+    const projectId = normalizePipelineProjectId(existing.project_id);
+    const fileKey = `pipeline/${projectId}/${category}/${assetId}.${ext}`;
+    const fileBody = await file.arrayBuffer();
+    await env.ASSETS.put(fileKey, fileBody, { httpMetadata: { contentType: mimeType } });
+    const thumbnailKey = mimeType.startsWith('image/') ? fileKey : '';
+    const now = Math.floor(Date.now() / 1000);
+    const version = nextPipelineVersion(existing.version);
+    await db.prepare(`
+      UPDATE assets
+      SET file_key=?, thumbnail_key=?, thumbnail_r2_key=?, mime_type=?, ext=?, version=?, storage_mode='r2', status='ready', updated_at=?
+      WHERE id=?
+    `).bind(fileKey, thumbnailKey, thumbnailKey, mimeType, ext, version, now, assetId).run();
+    const row = await db.prepare('SELECT * FROM assets WHERE id=?').bind(assetId).first();
+    return json({ success: true, asset: pipelineAssetToPublic(row) });
+  }
+
+  // DELETE /api/seedance/pipeline/assets/:id - soft delete only; R2 original is preserved.
+  const pipelineDeleteMatch = path.match(/^\/api\/seedance\/pipeline\/assets\/([^/]+)$/);
+  if (pipelineDeleteMatch && method === 'DELETE') {
+    const auth = await requireSeedanceAdmin();
+    if (auth.error) return auth.error;
+    const assetId = decodeURIComponent(pipelineDeleteMatch[1]);
+    const existing = await db.prepare("SELECT * FROM assets WHERE id=? AND type='pipeline' AND COALESCE(archived, 0)=0").bind(assetId).first();
+    if (!existing) return json({ error: 'Pipeline asset not found' }, 404);
+    const now = Math.floor(Date.now() / 1000);
+    const actor = auth.user.email || auth.user.name || auth.user.id || 'seedance-admin';
+    await db.prepare("UPDATE assets SET archived=1, archived_at=?, archived_by=?, updated_at=? WHERE id=?").bind(now, actor, now, assetId).run();
+    return json({ success: true, id: assetId, archived: true, preserved_r2_key: existing.file_key || '' });
+  }
+
   function normalizeCell(value) {
     return String(value ?? '').trim();
   }
@@ -6497,11 +6941,11 @@ async function handleSeedanceAPI(path, request, env) {
   function classifyBreakdownRow(rowObject) {
     const keys = Object.keys(rowObject).join(' ').toLowerCase();
     const text = Object.values(rowObject).join(' ').toLowerCase();
-    const isChar = /character|char|캐릭|인물|ch_/i.test(keys + text);
-    const isProp = /prop|프랍|소품/i.test(keys + text);
-    const isEnv = /environment|env|background|배경|공간/i.test(keys + text);
-    const isPlayblast = /playblast|플레이블라스트|animatic|maya|\.mp4|\.mov/i.test(text);
-    const isGuide = /guide|direction|director|연출|가이드|comment|note/i.test(keys + text);
+    const isChar = /character|char|ch_/i.test(keys + text);
+    const isProp = /prop/i.test(keys + text);
+    const isEnv = /environment|env|background/i.test(keys + text);
+    const isPlayblast = /playblast|animatic|maya|\.mp4|\.mov/i.test(text);
+    const isGuide = /guide|direction|director|comment|note/i.test(keys + text);
     return { isChar, isProp, isEnv, isPlayblast, isGuide };
   }
 
@@ -6588,7 +7032,7 @@ async function handleSeedanceAPI(path, request, env) {
 
   async function generateShotSeedancePrompt(context, options = {}) {
     const anthropicKey = env.ANTHROPIC_API_KEY;
-    if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY 미설정');
+    if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY 誘몄꽕?');
     const system = `You are Claude Code API acting as a senior Seedance 2.0 prompt engineer for STUDIOJUN's 3D animation pipeline.
 Use Google Sheets shot breakdown data, character sheets, prop sheets, background sheets, Maya playblast, and direction guides.
 Write a production-ready English Seedance 2.0 prompt for Turbo One.
@@ -6621,18 +7065,18 @@ Return ONLY valid JSON.`;
     const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
     let parsed;
     try { parsed = JSON.parse(cleaned); } catch (e) {
-      parsed = { prompt: raw.trim(), negative_prompt: '', params: {}, references: [], notes_ko: 'JSON 파싱 실패. 원문 프롬프트를 사용했습니다.' };
+      parsed = { prompt: raw.trim(), negative_prompt: '', params: {}, references: [], notes_ko: 'JSON ?뚯떛 ?ㅽ뙣. ?먮Ц ?꾨＼?꾪듃瑜??ъ슜?덉뒿?덈떎.' };
     }
     if (!parsed.prompt) throw new Error('Claude prompt empty');
     return parsed;
   }
 
-  // POST /api/seedance/config — API 키 저장 (D1 fallback용)
+  // POST /api/seedance/config ??API ?????(D1 fallback??
   if (path === '/api/seedance/config' && method === 'POST') {
     return json({ error: 'BytePlus API key must be configured as Worker Secret BYTEPLUS_API_KEY. D1 app_config storage is disabled.' }, 410);
   }
 
-  // GET /api/seedance/config — 키 존재 여부 반환
+  // GET /api/seedance/config ????議댁옱 ?щ? 諛섑솚
   if (path === '/api/seedance/config' && method === 'GET') {
     const key = await getBytePlusKey();
     return json({
@@ -6642,18 +7086,18 @@ Return ONLY valid JSON.`;
     });
   }
 
-  // POST /api/seedance/render — 렌더 작업 생성
+  // POST /api/seedance/render ???뚮뜑 ?묒뾽 ?앹꽦
   if (path === '/api/seedance/render' && method === 'POST') {
     const apiKey = await getBytePlusKey();
-    if (!apiKey) return json({ error: 'BytePlus API 키가 설정되지 않았습니다. /api/seedance/config 에서 설정하거나 BYTEPLUS_API_KEY secret을 추가하세요.' }, 400);
+    if (!apiKey) return json({ error: 'BytePlus API ?ㅺ? ?ㅼ젙?섏? ?딆븯?듬땲?? /api/seedance/config ?먯꽌 ?ㅼ젙?섍굅??BYTEPLUS_API_KEY secret??異붽??섏꽭??' }, 400);
 
     const body = await request.json();
     const { prompt, mode, source_url, ref_image_urls, references, duration, aspect_ratio, quality, model, shot_id, cut_id, session_id, created_by, generate_audio, watermark, camera_fixed, seed } = body;
     if (!prompt && !source_url && (!ref_image_urls || !ref_image_urls.length) && (!references || !references.length)) {
-      return json({ error: 'prompt 또는 이미지/영상/오디오 레퍼런스 URL 필수' }, 400);
+      return json({ error: 'prompt ?먮뒗 ?대?吏/?곸긽/?ㅻ뵒???덊띁?곗뒪 URL ?꾩닔' }, 400);
     }
 
-    // 모델명 매핑 (프론트엔드 단축명 → BytePlus 실제 모델 ID)
+    // 紐⑤뜽紐?留ㅽ븨 (?꾨줎?몄뿏???⑥텞紐???BytePlus ?ㅼ젣 紐⑤뜽 ID)
     const MODEL_MAP = {
       'seedance-2-0': 'dreamina-seedance-2-0-260128',
       'seedance-2-0-fast': 'dreamina-seedance-2-0-fast-260128',
@@ -6666,8 +7110,8 @@ Return ONLY valid JSON.`;
     const taskAspect = resolveSeedanceRatio(aspect_ratio, ratioRefs);
     const taskMode = mode || (source_url || (ref_image_urls && ref_image_urls.length) ? 'image_to_video' : 'text_to_video');
 
-    // BytePlus 공식 ModelArk tasks API 형식:
-    // content에는 입력 텍스트/레퍼런스만 넣고, ratio/duration/watermark/generate_audio는 top-level에 둔다.
+    // BytePlus 怨듭떇 ModelArk tasks API ?뺤떇:
+    // content?먮뒗 ?낅젰 ?띿뒪???덊띁?곗뒪留??ｊ퀬, ratio/duration/watermark/generate_audio??top-level???붾떎.
     const content = buildSeedanceContent({ prompt, references, ref_image_urls, source_url, mode: taskMode });
 
     const reqBody = {
@@ -6682,7 +7126,7 @@ Return ONLY valid JSON.`;
     if (camera_fixed === true) reqBody.camerafixed = true;
     if (typeof seed === 'number' && seed >= 0) reqBody.seed = seed;
 
-    // BytePlus로 작업 전송
+    // BytePlus濡??묒뾽 ?꾩넚
     let bpResult;
     try {
       const bpResp = await fetch(BYTEPLUS_BASE + '/contents/generations/tasks', {
@@ -6692,14 +7136,14 @@ Return ONLY valid JSON.`;
       });
       bpResult = await bpResp.json();
     } catch (e) {
-      return json({ error: 'BytePlus API 요청 실패: ' + e.message }, 502);
+      return json({ error: 'BytePlus API ?붿껌 ?ㅽ뙣: ' + e.message }, 502);
     }
 
     if (!bpResult.id) {
-      return json({ error: 'BytePlus 작업 생성 실패', detail: bpResult }, 502);
+      return json({ error: 'BytePlus ?묒뾽 ?앹꽦 ?ㅽ뙣', detail: bpResult }, 502);
     }
 
-    // D1에 작업 저장
+    // D1???묒뾽 ???
     const jobId = guideId('SEED');
     const now = Math.floor(Date.now() / 1000);
     await db.prepare(
@@ -6724,16 +7168,16 @@ Return ONLY valid JSON.`;
     return json({ success: true, job: { id: jobId, task_id: bpResult.id, status: 'pending' } });
   }
 
-  // GET /api/seedance/status/:jobId — 작업 상태 폴링
+  // GET /api/seedance/status/:jobId ???묒뾽 ?곹깭 ?대쭅
   const statusMatch = path.match(/^\/api\/seedance\/status\/([^/]+)$/);
   if (statusMatch && method === 'GET') {
     const job = await db.prepare('SELECT * FROM seedance_jobs WHERE id=?').bind(statusMatch[1]).first();
-    if (!job) return json({ error: '작업 없음' }, 404);
+    if (!job) return json({ error: '?묒뾽 ?놁쓬' }, 404);
 
     const apiKey = await getBytePlusKey();
-    if (!apiKey) return json({ error: 'BytePlus API 키 미설정' }, 400);
+    if (!apiKey) return json({ error: 'BytePlus API ??誘몄꽕?' }, 400);
 
-    // BytePlus에서 최신 상태 조회
+    // BytePlus?먯꽌 理쒖떊 ?곹깭 議고쉶
     let bpStatus;
     try {
       const bpResp = await fetch(BYTEPLUS_BASE + '/contents/generations/tasks/' + job.task_id, {
@@ -6749,11 +7193,11 @@ Return ONLY valid JSON.`;
     let r2Key = job.r2_key;
     let cost = job.cost;
 
-    // BytePlus 상태값 매핑
+    // BytePlus ?곹깭媛?留ㅽ븨
     const sMap = { queued:'pending', running:'processing', succeeded:'completed', failed:'failed' };
     if (bpStatus.status) newStatus = sMap[bpStatus.status] || bpStatus.status;
 
-    // 완료 시 결과 URL 저장
+    // ?꾨즺 ??寃곌낵 URL ???
     if (bpStatus.status === 'succeeded') {
       let parsedContent = bpStatus.content;
       if (typeof parsedContent === 'string') {
@@ -6795,11 +7239,11 @@ Return ONLY valid JSON.`;
             r2Key = `seedance/${job.id}.mp4`;
             await env.ASSETS.put(r2Key, vidBlob, { httpMetadata: { contentType: 'video/mp4' } });
           }
-        } catch (e) { /* R2 저장 실패 무시 */ }
+        } catch (e) { /* R2 ????ㅽ뙣 臾댁떆 */ }
       }
     }
 
-    // 사용량 추출 및 비용 계산
+    // ?ъ슜??異붿텧 諛?鍮꾩슜 怨꾩궛
     if (bpStatus.usage) {
       const u = bpStatus.usage;
       const totalTokens = u.total_tokens || ((u.prompt_tokens || 0) + (u.completion_tokens || 0));
@@ -6809,7 +7253,7 @@ Return ONLY valid JSON.`;
 
     const errorMsg = bpStatus.status === 'failed' && bpStatus.error ? JSON.stringify(bpStatus.error) : (job.error || '');
 
-    // D1 업데이트
+    // D1 ?낅뜲?댄듃
     const now = Math.floor(Date.now() / 1000);
     await db.prepare(
       'UPDATE seedance_jobs SET status=?, result_url=?, r2_key=?, cost=?, error=?, updated_at=? WHERE id=?'
@@ -6823,7 +7267,7 @@ Return ONLY valid JSON.`;
     });
   }
 
-  // GET /api/seedance/jobs — 작업 목록
+  // GET /api/seedance/jobs ???묒뾽 紐⑸줉
   if (path === '/api/seedance/jobs' && method === 'GET') {
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit') || '20');
@@ -6840,11 +7284,11 @@ Return ONLY valid JSON.`;
     return json({ success: true, jobs: jobs.results });
   }
 
-  // DELETE /api/seedance/jobs/:id — 작업 삭제
+  // DELETE /api/seedance/jobs/:id ???묒뾽 ??젣
   const delMatch = path.match(/^\/api\/seedance\/jobs\/([^/]+)$/);
   if (delMatch && method === 'DELETE') {
     const job = await db.prepare('SELECT * FROM seedance_jobs WHERE id=?').bind(delMatch[1]).first();
-    if (!job) return json({ error: '작업 없음' }, 404);
+    if (!job) return json({ error: '?묒뾽 ?놁쓬' }, 404);
     if (job.r2_key && env.ASSETS) {
       try { await env.ASSETS.delete(job.r2_key); } catch(e) {}
     }
@@ -6852,11 +7296,11 @@ Return ONLY valid JSON.`;
     return json({ success: true });
   }
 
-  // POST /api/seedance/upload-playblast — Seedance 레퍼런스 파일 R2 업로드
+  // POST /api/seedance/upload-playblast ??Seedance ?덊띁?곗뒪 ?뚯씪 R2 ?낅줈??
   if (path === '/api/seedance/upload-playblast' && method === 'POST') {
     const contentType = request.headers.get('content-type') || '';
     if (!contentType.includes('video/') && !contentType.includes('image/') && !contentType.includes('audio/') && !contentType.includes('octet-stream') && !contentType.includes('multipart/form-data')) {
-      return json({ error: '이미지, 비디오, 오디오 파일만 업로드 가능' }, 400);
+      return json({ error: '?대?吏, 鍮꾨뵒?? ?ㅻ뵒???뚯씪留??낅줈??媛?' }, 400);
     }
 
     const url = new URL(request.url);
@@ -6866,7 +7310,7 @@ Return ONLY valid JSON.`;
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const file = formData.get('file');
-      if (!file) return json({ error: 'file 필드가 필요합니다.' }, 400);
+      if (!file) return json({ error: 'file ?꾨뱶媛 ?꾩슂?⑸땲??' }, 400);
       fileBody = await file.arrayBuffer();
       fileType = file.type || 'application/octet-stream';
       sourceName = sourceName || file.name || '';
@@ -6887,11 +7331,11 @@ Return ONLY valid JSON.`;
     return json({ success: true, r2_key: r2Key, url: publicUrl, size: fileBody.byteLength, type: uploadType });
   }
 
-  // GET /api/seedance/usage — 사용량/크레딧 집계 (seedance_jobs 자체 집계 + BytePlus 키 상태)
+  // GET /api/seedance/usage ???ъ슜???щ젅??吏묎퀎 (seedance_jobs ?먯껜 吏묎퀎 + BytePlus ???곹깭)
   if (path === '/api/seedance/usage' && method === 'GET') {
     await initSeedanceTables(db);
 
-    // seedance_jobs 자체 집계
+    // seedance_jobs ?먯껜 吏묎퀎
     const stats = await db.prepare(`
       SELECT
         COUNT(*) as total_jobs,
@@ -6904,19 +7348,19 @@ Return ONLY valid JSON.`;
       FROM seedance_jobs
     `).first();
 
-    // 키 설정 여부
+    // ???ㅼ젙 ?щ?
     await db.prepare(`CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER DEFAULT (unixepoch()))`).run();
     const bpKey = await getBytePlusKey();
     const configured = !!bpKey;
     const provider = configured ? 'BytePlus/Ark' : null;
 
-    // cost 정규화 (값이 달러면 그대로, 센트면 /100)
+    // cost ?뺢퇋??(媛믪씠 ?щ윭硫?洹몃?濡? ?쇳듃硫?/100)
     const rawCost = stats?.total_cost_raw || 0;
     const totalCost = rawCost > 100 ? (rawCost / 100).toFixed(2) : rawCost.toFixed(4);
     const completedCost = stats?.completed_cost_raw || 0;
     const completedCostFmt = completedCost > 100 ? (completedCost / 100).toFixed(2) : completedCost.toFixed(4);
 
-    // 최근 30일 사용량
+    // 理쒓렐 30???ъ슜??
     const monthly = await db.prepare(`
       SELECT COUNT(*) as cnt, COALESCE(SUM(CAST(cost as REAL)),0) as cost
       FROM seedance_jobs
@@ -6943,7 +7387,7 @@ Return ONLY valid JSON.`;
     });
   }
 
-  // GET /api/seedance/shot-context — admin only: Google Sheets breakdown + R2 references
+  // GET /api/seedance/shot-context ??admin only: Google Sheets breakdown + R2 references
   if (path === '/api/seedance/shot-context' && method === 'GET') {
     const auth = await requireSeedanceAdmin();
     if (auth.error) return auth.error;
@@ -6955,7 +7399,7 @@ Return ONLY valid JSON.`;
     return json({ success: true, context });
   }
 
-  // POST /api/seedance/shot-auto-prompt — admin only: breakdown-aware Claude prompt
+  // POST /api/seedance/shot-auto-prompt ??admin only: breakdown-aware Claude prompt
   if (path === '/api/seedance/shot-auto-prompt' && method === 'POST') {
     const auth = await requireSeedanceAdmin();
     if (auth.error) return auth.error;
@@ -6966,7 +7410,7 @@ Return ONLY valid JSON.`;
     return json({ success: true, prompt: promptPackage.prompt, prompt_package: promptPackage, context });
   }
 
-  // POST /api/seedance/shot-auto-render — admin only: breakdown -> Claude -> Seedance task
+  // POST /api/seedance/shot-auto-render ??admin only: breakdown -> Claude -> Seedance task
   if (path === '/api/seedance/shot-auto-render' && method === 'POST') {
     const auth = await requireSeedanceAdmin();
     if (auth.error) return auth.error;
@@ -7037,9 +7481,9 @@ Return ONLY valid JSON.`;
     return json({ success: true, job: { id: jobId, task_id: bpResult.id, status: 'pending' }, prompt_package: promptPackage, context });
   }
 
-  // POST /api/seedance/characters — Turbo One character/prop/mech reference sheet upload
+  // POST /api/seedance/characters ??Turbo One character/prop/mech reference sheet upload
   if (path === '/api/seedance/characters' && method === 'POST') {
-    if (!env.ASSETS) return json({ error: 'R2 ASSETS 미설정' }, 500);
+    if (!env.ASSETS) return json({ error: 'R2 ASSETS 誘몄꽕?' }, 500);
     const formData = await request.formData();
     const assetType = normalizeSeedanceAssetType(formData.get('asset_type'));
     const assetCode = normalizeSeedanceAssetCode(formData.get('asset_code'));
@@ -7048,7 +7492,7 @@ Return ONLY valid JSON.`;
     const tags = String(formData.get('tags') || '').trim().slice(0, 300);
     const notes = String(formData.get('notes') || '').trim().slice(0, 2000);
     const files = formData.getAll('files').filter(file => file && typeof file.arrayBuffer === 'function');
-    if (!files.length) return json({ error: 'files[] 이미지가 필요합니다.' }, 400);
+    if (!files.length) return json({ error: 'files[] ?대?吏媛 ?꾩슂?⑸땲??' }, 400);
 
     const folder = `${assetType}${assetCode}_${assetName}`;
     const existing = await db.prepare('SELECT * FROM seedance_character_sheets WHERE folder=?').bind(folder).first();
@@ -7059,7 +7503,7 @@ Return ONLY valid JSON.`;
       const file = files[i];
       const contentType = file.type || 'application/octet-stream';
       if (!contentType.startsWith('image/')) continue;
-      if (file.size && file.size > 15 * 1024 * 1024) return json({ error: '이미지는 파일당 15MB 이하만 지원합니다.' }, 413);
+      if (file.size && file.size > 15 * 1024 * 1024) return json({ error: '?대?吏???뚯씪??15MB ?댄븯留?吏?먰빀?덈떎.' }, 413);
       const body = await file.arrayBuffer();
       const safeName = String(file.name || `sheet_${i}.png`).replace(/[^A-Za-z0-9_.-]+/g, '_');
       const key = `CharacterSheets/${folder}/${role}_${nowMs}_${i}_${safeName}`;
@@ -7074,7 +7518,7 @@ Return ONLY valid JSON.`;
         content_type: contentType
       });
     }
-    if (!uploaded.length) return json({ error: '업로드 가능한 이미지 파일이 없습니다.' }, 400);
+    if (!uploaded.length) return json({ error: '?낅줈??媛?ν븳 ?대?吏 ?뚯씪???놁뒿?덈떎.' }, 400);
 
     const allFiles = existingFiles.concat(uploaded);
     const coverUrl = existing?.cover_url || characterFileToPublic(uploaded[0]).url;
@@ -7095,9 +7539,9 @@ Return ONLY valid JSON.`;
     }, existing ? 200 : 201);
   }
 
-  // GET /api/seedance/characters — CharacterSheets/ 폴더 목록 반환
+  // GET /api/seedance/characters ??CharacterSheets/ ?대뜑 紐⑸줉 諛섑솚
   if (path === '/api/seedance/characters' && method === 'GET') {
-    if (!env.ASSETS) return json({ error: 'R2 ASSETS 미설정' }, 500);
+    if (!env.ASSETS) return json({ error: 'R2 ASSETS 誘몄꽕?' }, 500);
     const rows = await db.prepare('SELECT * FROM seedance_character_sheets ORDER BY asset_type, asset_code, asset_name').all();
     const metadataCharacters = (rows.results || []).map(characterRowToPublic);
     const seen = new Set(metadataCharacters.map(item => item.folder));
@@ -7125,10 +7569,10 @@ Return ONLY valid JSON.`;
     return json({ success: true, characters: metadataCharacters.concat(fallbackCharacters) });
   }
 
-  // GET /api/seedance/characters/:folder/files — 캐릭터 폴더 내 파일 목록
+  // GET /api/seedance/characters/:folder/files ??罹먮┃???대뜑 ???뚯씪 紐⑸줉
   const charFilesMatch = path.match(/^\/api\/seedance\/characters\/([^/]+)\/files$/);
   if (charFilesMatch && method === 'GET') {
-    if (!env.ASSETS) return json({ error: 'R2 ASSETS 미설정' }, 500);
+    if (!env.ASSETS) return json({ error: 'R2 ASSETS 誘몄꽕?' }, 500);
     const folder = decodeURIComponent(charFilesMatch[1]);
     const row = await db.prepare('SELECT * FROM seedance_character_sheets WHERE folder=?').bind(folder).first();
     if (row) return json({ success: true, files: parseCharacterFiles(row.files_json) });
@@ -7147,9 +7591,9 @@ Return ONLY valid JSON.`;
     return json({ success: true, files });
   }
 
-  // GET /api/seedance/charimg/:r2key — 캐릭터 시트 이미지 서빙 (ASSETS 버킷)
+  // GET /api/seedance/charimg/:r2key ??罹먮┃???쒗듃 ?대?吏 ?쒕튃 (ASSETS 踰꾪궥)
   if (path.startsWith('/api/seedance/charimg/') && method === 'GET') {
-    if (!env.ASSETS) return json({ error: 'R2 ASSETS 미설정' }, 500);
+    if (!env.ASSETS) return json({ error: 'R2 ASSETS 誘몄꽕?' }, 500);
     const r2Key = decodeURIComponent(path.replace('/api/seedance/charimg/', ''));
     const object = await env.ASSETS.get(r2Key);
     if (!object) return json({ error: 'Not found: ' + r2Key }, 404);
@@ -7160,7 +7604,7 @@ Return ONLY valid JSON.`;
     return new Response(object.body, { status: 200, headers });
   }
 
-  // POST /api/seedance/auto-prompt — AI가 샷/컷 설명에서 Seedance 프롬프트 자동 생성
+  // POST /api/seedance/auto-prompt ??AI媛 ??而??ㅻ챸?먯꽌 Seedance ?꾨＼?꾪듃 ?먮룞 ?앹꽦
   if (path === '/api/seedance/auto-prompt' && method === 'POST') {
     const { cut_id, shot_code, description: manualDesc, style } = await request.json();
     let desc = manualDesc || '';
@@ -7176,9 +7620,9 @@ Return ONLY valid JSON.`;
       const shot = await db.prepare('SELECT description, note, scene FROM shots WHERE shot_code = ?').bind(shot_code).first();
       if (shot) desc = shot.description || shot.note || '';
     }
-    if (!desc) return json({ error: '설명 데이터가 없습니다. cut_id, shot_code, 또는 description을 제공하세요.' }, 400);
+    if (!desc) return json({ error: '?ㅻ챸 ?곗씠?곌? ?놁뒿?덈떎. cut_id, shot_code, ?먮뒗 description???쒓났?섏꽭??' }, 400);
     const anthropicKey = env.ANTHROPIC_API_KEY;
-    if (!anthropicKey) return json({ error: 'ANTHROPIC_API_KEY 미설정' }, 500);
+    if (!anthropicKey) return json({ error: 'ANTHROPIC_API_KEY 誘몄꽕?' }, 500);
     const styleGuide = style || '3D animated robot action anime, cinematic lighting, 4K quality';
     try {
       const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -7198,19 +7642,19 @@ Output ONLY the English prompt.`
       });
       const aiData = await aiResp.json();
       const prompt = aiData.content?.[0]?.text || '';
-      if (!prompt) return json({ error: 'AI 응답 없음', detail: aiData }, 500);
+      if (!prompt) return json({ error: 'AI ?묐떟 ?놁쓬', detail: aiData }, 500);
       return json({ success: true, prompt, source_description: desc, cut_info: cutInfo || null });
-    } catch (e) { return json({ error: 'Claude API 오류: ' + e.message }, 502); }
+    } catch (e) { return json({ error: 'Claude API ?ㅻ쪟: ' + e.message }, 502); }
   }
 
-  // POST /api/seedance/batch-render — 여러 컷을 한번에 렌더 큐에 등록
+  // POST /api/seedance/batch-render ???щ윭 而룹쓣 ?쒕쾲???뚮뜑 ?먯뿉 ?깅줉
   if (path === '/api/seedance/batch-render' && method === 'POST') {
     const apiKey = await getBytePlusKey();
-    if (!apiKey) return json({ error: 'BytePlus API 키 미설정' }, 400);
+    if (!apiKey) return json({ error: 'BytePlus API ??誘몄꽕?' }, 400);
     const { cut_ids, mode, model, duration, aspect_ratio, style, created_by, generate_audio, watermark } = await request.json();
-    if (!cut_ids || !cut_ids.length) return json({ error: 'cut_ids 배열 필수' }, 400);
+    if (!cut_ids || !cut_ids.length) return json({ error: 'cut_ids 諛곗뿴 ?꾩닔' }, 400);
     const anthropicKey = env.ANTHROPIC_API_KEY;
-    if (!anthropicKey) return json({ error: 'ANTHROPIC_API_KEY 미설정' }, 500);
+    if (!anthropicKey) return json({ error: 'ANTHROPIC_API_KEY 誘몄꽕?' }, 500);
     const results = [], errors = [];
     const taskMode = mode || 'text_to_video';
     const taskDuration = normalizeSeedanceDuration(duration);
@@ -7224,7 +7668,7 @@ Output ONLY the English prompt.`
           `SELECT c.description, c.duration, c.cut_number, c.shot_id, e.title as ep_title
            FROM sb_cuts c LEFT JOIN sb_episodes e ON c.episode_id = e.id WHERE c.id = ?`
         ).bind(cutId).first();
-        if (!cutInfo || !cutInfo.description) { errors.push({ cut_id: cutId, error: '설명 없음' }); continue; }
+        if (!cutInfo || !cutInfo.description) { errors.push({ cut_id: cutId, error: '?ㅻ챸 ?놁쓬' }); continue; }
         const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
@@ -7236,7 +7680,7 @@ Output ONLY the English prompt.`
         });
         const aiData = await aiResp.json();
         const prompt = aiData.content?.[0]?.text || '';
-        if (!prompt) { errors.push({ cut_id: cutId, error: 'AI 프롬프트 생성 실패' }); continue; }
+        if (!prompt) { errors.push({ cut_id: cutId, error: 'AI ?꾨＼?꾪듃 ?앹꽦 ?ㅽ뙣' }); continue; }
         const content = [{ type: 'text', text: prompt }];
         const bpResp = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks', {
           method: 'POST',
@@ -7251,7 +7695,7 @@ Output ONLY the English prompt.`
           })
         });
         const bpResult = await bpResp.json();
-        if (!bpResult.id) { errors.push({ cut_id: cutId, error: 'BytePlus 작업 생성 실패', detail: bpResult }); continue; }
+        if (!bpResult.id) { errors.push({ cut_id: cutId, error: 'BytePlus ?묒뾽 ?앹꽦 ?ㅽ뙣', detail: bpResult }); continue; }
         const jobId = guideId('SEED');
         const now = Math.floor(Date.now() / 1000);
         await db.prepare(
@@ -7264,16 +7708,16 @@ Output ONLY the English prompt.`
     return json({ success: true, total: cut_ids.length, submitted: results.length, failed: errors.length, jobs: results, errors });
   }
 
-  // POST /api/seedance/extend — 기존 영상 기반 연장/스티칭 작업 생성
+  // POST /api/seedance/extend ??湲곗〈 ?곸긽 湲곕컲 ?곗옣/?ㅽ떚移??묒뾽 ?앹꽦
   if ((path === '/api/seedance/extend' || path === '/api/seedance/stitch') && method === 'POST') {
     const body = await request.json();
     const { prompt, video_url, video_urls, source_url, duration, aspect_ratio, model, shot_id, cut_id, session_id, created_by, generate_audio, watermark } = body;
     const clips = Array.isArray(video_urls) ? video_urls : [];
     const primaryVideo = video_url || source_url || (typeof clips[0] === 'string' ? clips[0] : clips[0]?.url);
-    if (!primaryVideo) return json({ error: 'video_url 또는 video_urls 배열이 필요합니다.' }, 400);
+    if (!primaryVideo) return json({ error: 'video_url ?먮뒗 video_urls 諛곗뿴???꾩슂?⑸땲??' }, 400);
 
     const apiKey = await getBytePlusKey();
-    if (!apiKey) return json({ error: 'BytePlus API 키 미설정' }, 400);
+    if (!apiKey) return json({ error: 'BytePlus API ??誘몄꽕?' }, 400);
 
     const MODEL_MAP = {
       'seedance-2-0': 'dreamina-seedance-2-0-260128',
@@ -7314,9 +7758,9 @@ Output ONLY the English prompt.`
       });
       bpResult = await bpResp.json();
     } catch (e) {
-      return json({ error: 'BytePlus API 요청 실패: ' + e.message }, 502);
+      return json({ error: 'BytePlus API ?붿껌 ?ㅽ뙣: ' + e.message }, 502);
     }
-    if (!bpResult.id) return json({ error: 'BytePlus 작업 생성 실패', detail: bpResult }, 502);
+    if (!bpResult.id) return json({ error: 'BytePlus ?묒뾽 ?앹꽦 ?ㅽ뙣', detail: bpResult }, 502);
 
     const jobId = guideId('SEED');
     const now = Math.floor(Date.now() / 1000);
@@ -7332,7 +7776,7 @@ Output ONLY the English prompt.`
     return json({ success: true, job: { id: jobId, task_id: bpResult.id, status: 'pending', mode: taskMode } });
   }
 
-  // GET /api/seedance/shots-list — 샷/컷 드롭다운용 목록
+  // GET /api/seedance/shots-list ????而??쒕∼?ㅼ슫??紐⑸줉
   if (path === '/api/seedance/shots-list' && method === 'GET') {
     const url = new URL(request.url);
     const episode = url.searchParams.get('episode') || '';
@@ -7352,11 +7796,11 @@ Output ONLY the English prompt.`
     return json({ success: true, cuts: cuts.results, episodes: episodes.results });
   }
 
-  return json({ error: 'Seedance API 엔드포인트를 찾을 수 없습니다: ' + path }, 404);
+  return json({ error: 'Seedance API ?붾뱶?ъ씤?몃? 李얠쓣 ???놁뒿?덈떎: ' + path }, 404);
 }
 
 // =============================================================================
-// GPT Image 2 API — Design/Modeling 파트 전용
+// GPT Image 2 API ??Design/Modeling ?뚰듃 ?꾩슜
 // =============================================================================
 async function handleGPTImageAPI(path, request, env) {
   const method = request.method;
@@ -7404,7 +7848,7 @@ async function handleGPTImageAPI(path, request, env) {
     return json({ success: true });
   }
 
-  // POST /api/gpt-image/auto-prompt — Claude로 이미지 프롬프트 자동 생성
+  // POST /api/gpt-image/auto-prompt ??Claude濡??대?吏 ?꾨＼?꾪듃 ?먮룞 ?앹꽦
   if (path === '/api/gpt-image/auto-prompt' && method === 'POST') {
     const body = await request.json();
     const dept = body.dept || 'design';
@@ -7430,10 +7874,10 @@ async function handleGPTImageAPI(path, request, env) {
   // POST /api/gpt-image/generate
   if (path === '/api/gpt-image/generate' && method === 'POST') {
     const body = await request.json();
-    if (!body.prompt) return json({ error: 'prompt 필수' }, 400);
+    if (!body.prompt) return json({ error: 'prompt ?꾩닔' }, 400);
 
     const openAiKey = env.OPENAI_API_KEY || '';
-    if (!openAiKey) return json({ error: 'OpenAI API 키 미설정. Worker Secret OPENAI_API_KEY를 설정하세요.' }, 400);
+    if (!openAiKey) return json({ error: 'OpenAI API ??誘몄꽕?? Worker Secret OPENAI_API_KEY瑜??ㅼ젙?섏꽭??' }, 400);
 
     const jobId = 'gimg_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
     await db.prepare('INSERT INTO gpt_image_jobs (id,prompt,dept,asset_link,size,quality,n,status) VALUES (?,?,?,?,?,?,?,?)')
@@ -7458,7 +7902,7 @@ async function handleGPTImageAPI(path, request, env) {
         return json({ success: false, error: oaiData.error.message });
       }
 
-      // b64_json 결과를 R2에 저장
+      // b64_json 寃곌낵瑜?R2?????
       const imgData = oaiData.data?.[0];
       let resultUrl = '';
       let r2Key = '';
@@ -7482,11 +7926,11 @@ async function handleGPTImageAPI(path, request, env) {
     }
   }
 
-  return json({ error: 'GPT Image API 엔드포인트를 찾을 수 없습니다: ' + path }, 404);
+  return json({ error: 'GPT Image API ?붾뱶?ъ씤?몃? 李얠쓣 ???놁뒿?덈떎: ' + path }, 404);
 }
 
 // =============================================================================
-// 이미지 생성 API — imagegen_jobs + app_config 기반
+// ?대?吏 ?앹꽦 API ??imagegen_jobs + app_config 湲곕컲
 // =============================================================================
 async function handleImagegenAPI(path, request, env) {
   const method = request.method;
@@ -7514,7 +7958,7 @@ async function handleImagegenAPI(path, request, env) {
     updated_at INTEGER DEFAULT (unixepoch())
   )`).run();
 
-  // GET /api/imagegen/config — API 키 설정 상태 반환
+  // GET /api/imagegen/config ??API ???ㅼ젙 ?곹깭 諛섑솚
   if (path === '/api/imagegen/config' && method === 'GET') {
     const bpKey  = env.BYTEPLUS_API_KEY || '';
     const gemKey = env.GEMINI_API_KEY || '';
@@ -7528,7 +7972,7 @@ async function handleImagegenAPI(path, request, env) {
     if (sdKey)  providers.push({ name: 'Stability AI',   masked: '****' + sdKey.slice(-4) });
     if (providers.length) provider = providers[0].name;
 
-    // 잡 통계
+    // ???듦퀎
     const stats = await db.prepare(`
       SELECT status, COUNT(*) as cnt FROM imagegen_jobs GROUP BY status
     `).all();
@@ -7538,12 +7982,12 @@ async function handleImagegenAPI(path, request, env) {
     return json({ success: true, configured, provider, providers, job_counts: counts });
   }
 
-  // POST /api/imagegen/config — API 키 저장
+  // POST /api/imagegen/config ??API ?????
   if (path === '/api/imagegen/config' && method === 'POST') {
     return json({ error: 'Image generation API keys must be configured as Worker Secrets. D1 app_config storage is disabled.' }, 410);
   }
 
-  // GET /api/imagegen/jobs — 최신 50건 목록
+  // GET /api/imagegen/jobs ??理쒖떊 50嫄?紐⑸줉
   if (path === '/api/imagegen/jobs' && method === 'GET') {
     const url = new URL(request.url);
     const limit  = Math.min(100, parseInt(url.searchParams.get('limit')  || '50'));
@@ -7564,7 +8008,7 @@ async function handleImagegenAPI(path, request, env) {
     return json({ success: true, jobs: jobs.results || [], total: total?.n || 0 });
   }
 
-  // DELETE /api/imagegen/jobs/:id — 잡 삭제
+  // DELETE /api/imagegen/jobs/:id ??????젣
   const delMatch = path.match(/^\/api\/imagegen\/jobs\/([^/]+)$/);
   if (delMatch && method === 'DELETE') {
     const id = delMatch[1];
@@ -7572,17 +8016,16 @@ async function handleImagegenAPI(path, request, env) {
     return json({ success: true });
   }
 
-  return json({ error: 'Imagegen API 엔드포인트를 찾을 수 없습니다: ' + path }, 404);
+  return json({ error: 'Imagegen API ?붾뱶?ъ씤?몃? 李얠쓣 ???놁뒿?덈떎: ' + path }, 404);
 }
 
 // =============================================================================
-// 알림/리포트 API — progress_reports + cowork_events 통합 뷰
-// =============================================================================
+// ?뚮┝/由ы룷??API ??progress_reports + cowork_events ?듯빀 酉?// =============================================================================
 async function handleReportsAPI(path, request, env) {
   const method = request.method;
   const db = env.DB;
 
-  // 테이블 초기화 (IF NOT EXISTS — 안전)
+  // ?뚯씠釉?珥덇린??(IF NOT EXISTS ???덉쟾)
   await db.prepare(`CREATE TABLE IF NOT EXISTS progress_reports (
     id TEXT PRIMARY KEY,
     report_type TEXT DEFAULT 'progress',
@@ -7602,11 +8045,11 @@ async function handleReportsAPI(path, request, env) {
     created_at DATETIME DEFAULT (datetime('now'))
   )`).run();
 
-  // 기존 테이블에 is_read 컬럼 없을 수 있으므로 ALTER TABLE 시도
+  // 湲곗〈 ?뚯씠釉붿뿉 is_read 而щ읆 ?놁쓣 ???덉쑝誘濡?ALTER TABLE ?쒕룄
   try { await db.prepare("ALTER TABLE progress_reports ADD COLUMN is_read INTEGER DEFAULT 0").run(); } catch(e) {}
   try { await db.prepare("ALTER TABLE cowork_events ADD COLUMN is_read INTEGER DEFAULT 0").run(); } catch(e) {}
 
-  // GET /api/reports — 통합 50건 (최신순)
+  // GET /api/reports ???듯빀 50嫄?(理쒖떊??
   if (path === '/api/reports' && method === 'GET') {
     const url = new URL(request.url);
     const limit = Math.min(100, parseInt(url.searchParams.get('limit') || '50'));
@@ -7636,7 +8079,7 @@ async function handleReportsAPI(path, request, env) {
       rows = rows.concat(evts.results || []);
     }
 
-    // 병합 후 최신순 정렬, limit 적용
+    // 蹂묓빀 ??理쒖떊???뺣젹, limit ?곸슜
     rows.sort((a, b) => (b.ts_raw || 0) - (a.ts_raw || 0));
     rows = rows.slice(0, limit);
 
@@ -7652,7 +8095,7 @@ async function handleReportsAPI(path, request, env) {
     return json({ success: true, count });
   }
 
-  // POST /api/reports/:uid/read — 읽음 처리 (uid 형식: rpt_xxx 또는 evt_123)
+  // POST /api/reports/:uid/read ???쎌쓬 泥섎━ (uid ?뺤떇: rpt_xxx ?먮뒗 evt_123)
   const readMatch = path.match(/^\/api\/reports\/([^/]+)\/read$/);
   if (readMatch && method === 'POST') {
     const uid = readMatch[1];
@@ -7671,16 +8114,16 @@ async function handleReportsAPI(path, request, env) {
     return json({ success: true, uid });
   }
 
-  return json({ error: 'Reports API 엔드포인트를 찾을 수 없습니다: ' + path }, 404);
+  return json({ error: 'Reports API ?붾뱶?ъ씤?몃? 李얠쓣 ???놁뒿?덈떎: ' + path }, 404);
 }
 
 // =============================================================================
 // Opus 4.7 Production Analysis Pipeline
-// 스토리보드 이미지 + 연출가이드 영상 + Maya 플레이블라스트 → Opus 4.7 분석 → Obsidian 지식화
+// ?ㅽ넗由щ낫???대?吏 + ?곗텧媛?대뱶 ?곸긽 + Maya ?뚮젅?대툝?쇱뒪????Opus 4.7 遺꾩꽍 ??Obsidian 吏?앺솕
 // =============================================================================
 
-// ─── 라우터 (handleAnalysisPipelineAPI) ──────────────────────────────────────
-// worker.js fetch()에 추가:
+// ??? ?쇱슦??(handleAnalysisPipelineAPI) ??????????????????????????????????????
+// worker.js fetch()??異붽?:
 //   if (path.startsWith('/api/analysis/')) {
 //     const res = await handleAnalysisPipelineAPI(path, request, env);
 //     return addCors(res);
@@ -7691,69 +8134,68 @@ async function handleAnalysisPipelineAPI(path, request, env) {
   const user = await authenticateAny(request, env);
   if (!user) return json({ error: 'Unauthorized' }, 401);
   if (!['admin', 'pd'].includes(user.role)) {
-    return json({ error: 'admin/pd 권한 필요' }, 403);
+    return json({ error: 'admin/pd 沅뚰븳 ?꾩슂' }, 403);
   }
 
   const db = env.DB;
   await initAnalysisTables(db);
 
-  // ─── 1. 파일 업로드 (스토리보드/가이드/플레이블라스트) ────────────
+  // ??? 1. ?뚯씪 ?낅줈??(?ㅽ넗由щ낫??媛?대뱶/?뚮젅?대툝?쇱뒪?? ????????????
   // POST /api/analysis/upload
   // FormData: file, cut_code, file_type(storyboard|guide|playblast), episode_id
   if (path === '/api/analysis/upload' && method === 'POST') {
     return analysisUpload(request, env, user);
   }
 
-  // ─── 2. Opus 4.7 분석 트리거 ──────────────────────────────────────
+  // ??? 2. Opus 4.7 遺꾩꽍 ?몃━嫄???????????????????????????????????????
   // POST /api/analysis/analyze
   // body: { cut_code, file_types: ['storyboard','guide','playblast'] }
   if (path === '/api/analysis/analyze' && method === 'POST') {
     return analysisRunOpus(request, env, user);
   }
 
-  // ─── 3. 분석 결과 조회 ────────────────────────────────────────────
+  // ??? 3. 遺꾩꽍 寃곌낵 議고쉶 ????????????????????????????????????????????
   // GET /api/analysis/result?cut_code=EP01_CUT001
   if (path === '/api/analysis/result' && method === 'GET') {
     return analysisGetResult(request, env);
   }
 
-  // ─── 4. 분석 결과 → Obsidian 마크다운 변환 + R2 저장 ─────────────
+  // ??? 4. 遺꾩꽍 寃곌낵 ??Obsidian 留덊겕?ㅼ슫 蹂??+ R2 ????????????????
   // POST /api/analysis/to-obsidian
-  // body: { cut_code } 또는 { episode_id } (에피소드 전체)
+  // body: { cut_code } ?먮뒗 { episode_id } (?먰뵾?뚮뱶 ?꾩껜)
   if (path === '/api/analysis/to-obsidian' && method === 'POST') {
     return analysisToObsidian(request, env, user);
   }
 
-  // ─── 5. 에피소드 전체 분석 (배치) ─────────────────────────────────
+  // ??? 5. ?먰뵾?뚮뱶 ?꾩껜 遺꾩꽍 (諛곗튂) ?????????????????????????????????
   // POST /api/analysis/batch
   // body: { episode_id, file_types: ['storyboard','guide','playblast'] }
   if (path === '/api/analysis/batch' && method === 'POST') {
     return analysisBatch(request, env, user);
   }
 
-  // ─── 6. 분석 히스토리 ─────────────────────────────────────────────
+  // ??? 6. 遺꾩꽍 ?덉뒪?좊━ ?????????????????????????????????????????????
   // GET /api/analysis/history?episode_id=EP01&limit=50
   if (path === '/api/analysis/history' && method === 'GET') {
     return analysisHistory(request, env);
   }
 
-  // ─── 7. Seedance 프롬프트 생성 (분석 기반) ────────────────────────
+  // ??? 7. Seedance ?꾨＼?꾪듃 ?앹꽦 (遺꾩꽍 湲곕컲) ????????????????????????
   // POST /api/analysis/generate-prompt
   // body: { cut_code }
   if (path === '/api/analysis/generate-prompt' && method === 'POST') {
     return analysisGeneratePrompt(request, env, user);
   }
 
-  return json({ error: 'Analysis API 엔드포인트 없음: ' + path }, 404);
+  return json({ error: 'Analysis API ?붾뱶?ъ씤???놁쓬: ' + path }, 404);
 }
 
 
 // =============================================================================
-// D1 테이블 초기화
-// =============================================================================
+// D1 ?뚯씠釉?珥덇린??// =============================================================================
 
 async function initAnalysisTables(db) {
-  // 분석용 파일 메타데이터
+  // 遺꾩꽍???뚯씪 硫뷀??곗씠??
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS analysis_files (
       id          TEXT PRIMARY KEY,
@@ -7771,7 +8213,7 @@ async function initAnalysisTables(db) {
     )
   `).run();
 
-  // Opus 4.7 분석 결과
+  // Opus 4.7 遺꾩꽍 寃곌낵
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS analysis_results (
       id              TEXT PRIMARY KEY,
@@ -7790,7 +8232,7 @@ async function initAnalysisTables(db) {
     )
   `).run();
 
-  // Obsidian 마크다운 생성 로그
+  // Obsidian 留덊겕?ㅼ슫 ?앹꽦 濡쒓렇
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS analysis_obsidian_log (
       id          TEXT PRIMARY KEY,
@@ -7806,8 +8248,7 @@ async function initAnalysisTables(db) {
 
 
 // =============================================================================
-// 1. 파일 업로드
-// =============================================================================
+// 1. ?뚯씪 ?낅줈??// =============================================================================
 
 async function analysisUpload(request, env, user) {
   const formData = await request.formData();
@@ -7817,13 +8258,13 @@ async function analysisUpload(request, env, user) {
   const episodeId = formData.get('episode_id') || cutCode?.split('_')[0] || 'EP01';
 
   if (!file || !cutCode || !fileType) {
-    return json({ error: 'file, cut_code, file_type 필수' }, 400);
+    return json({ error: 'file, cut_code, file_type ?꾩닔' }, 400);
   }
   if (!['storyboard', 'guide', 'playblast'].includes(fileType)) {
-    return json({ error: 'file_type: storyboard/guide/playblast 중 하나' }, 400);
+    return json({ error: 'file_type: storyboard/guide/playblast 以??섎굹' }, 400);
   }
 
-  // R2 경로: analysis/{episode}/{cut_code}/{file_type}/{filename}
+  // R2 寃쎈줈: analysis/{episode}/{cut_code}/{file_type}/{filename}
   const ext = file.name?.split('.').pop() || (fileType === 'storyboard' ? 'png' : 'mp4');
   const r2Key = `analysis/${episodeId}/${cutCode}/${fileType}/${cutCode}_${fileType}.${ext}`;
 
@@ -7857,35 +8298,34 @@ async function analysisUpload(request, env, user) {
 
 
 // =============================================================================
-// 2. Opus 4.7 분석 실행
+// 2. Opus 4.7 遺꾩꽍 ?ㅽ뻾
 // =============================================================================
 
 async function analysisRunOpus(request, env, user) {
   const body = await request.json();
   const { cut_code, file_types = ['storyboard', 'guide', 'playblast'] } = body;
 
-  if (!cut_code) return json({ error: 'cut_code 필수' }, 400);
+  if (!cut_code) return json({ error: 'cut_code ?꾩닔' }, 400);
 
-  // 업로드된 파일 조회
+  // ?낅줈?쒕맂 ?뚯씪 議고쉶
   const files = await env.DB.prepare(
     `SELECT * FROM analysis_files WHERE cut_code = ? AND file_type IN (${file_types.map(() => '?').join(',')})`
   ).bind(cut_code, ...file_types).all();
 
   if (!files.results?.length) {
-    return json({ error: `${cut_code}에 업로드된 파일 없음` }, 404);
+    return json({ error: `${cut_code}???낅줈?쒕맂 ?뚯씪 ?놁쓬` }, 404);
   }
 
   const results = [];
 
   for (const file of files.results) {
-    // R2에서 파일 가져오기
-    const r2Object = await env.ASSETS.get(file.r2_key);
+    // R2?먯꽌 ?뚯씪 媛?몄삤湲?    const r2Object = await env.ASSETS.get(file.r2_key);
     if (!r2Object) continue;
 
     let analysisResult;
 
     if (file.file_type === 'storyboard') {
-      // 이미지 분석 — Opus 4.7 Vision
+      // ?대?吏 遺꾩꽍 ??Opus 4.7 Vision
       const imageBytes = await r2Object.arrayBuffer();
       const base64 = btoa(String.fromCharCode(...new Uint8Array(imageBytes)));
       const mediaType = file.content_type || 'image/png';
@@ -7894,30 +8334,30 @@ async function analysisRunOpus(request, env, user) {
         systemPrompt: STORYBOARD_ANALYSIS_PROMPT,
         imageBase64: base64,
         mediaType,
-        userPrompt: `컷 코드: ${cut_code}\n이 스토리보드 이미지를 분석해주세요.`
+        userPrompt: `而?肄붾뱶: ${cut_code}\n???ㅽ넗由щ낫???대?吏瑜?遺꾩꽍?댁＜?몄슂.`
       });
 
     } else if (file.file_type === 'guide') {
-      // 연출가이드 영상 — 현재는 프레임 추출 후 분석 (향후 비디오 직접 분석)
-      // TODO: 영상에서 키프레임 추출 후 멀티이미지 분석
+      // ?곗텧媛?대뱶 ?곸긽 ???꾩옱???꾨젅??異붿텧 ??遺꾩꽍 (?ν썑 鍮꾨뵒??吏곸젒 遺꾩꽍)
+      // TODO: ?곸긽?먯꽌 ?ㅽ봽?덉엫 異붿텧 ??硫?곗씠誘몄? 遺꾩꽍
       analysisResult = await callOpus47Text(env, {
         systemPrompt: GUIDE_ANALYSIS_PROMPT,
-        userPrompt: `컷 코드: ${cut_code}\n연출가이드 영상 파일: ${file.r2_key}\n파일 크기: ${file.file_size} bytes\n\n현재 영상 직접 분석 미지원. 연출가이드 텍스트 기반 분석으로 대체. 추후 Opus 4.7 비전이 비디오를 지원하면 업그레이드.`
+        userPrompt: `而?肄붾뱶: ${cut_code}\n?곗텧媛?대뱶 ?곸긽 ?뚯씪: ${file.r2_key}\n?뚯씪 ?ш린: ${file.file_size} bytes\n\n?꾩옱 ?곸긽 吏곸젒 遺꾩꽍 誘몄??? ?곗텧媛?대뱶 ?띿뒪??湲곕컲 遺꾩꽍?쇰줈 ?泥? 異뷀썑 Opus 4.7 鍮꾩쟾??鍮꾨뵒?ㅻ? 吏?먰븯硫??낃렇?덉씠??`
       });
 
     } else if (file.file_type === 'playblast') {
-      // Maya 플레이블라스트 — 프레임 추출 후 분석
-      // TODO: 비디오에서 키프레임 추출 → 멀티이미지 분석
+      // Maya ?뚮젅?대툝?쇱뒪?????꾨젅??異붿텧 ??遺꾩꽍
+      // TODO: 鍮꾨뵒?ㅼ뿉???ㅽ봽?덉엫 異붿텧 ??硫?곗씠誘몄? 遺꾩꽍
       analysisResult = await callOpus47Text(env, {
         systemPrompt: PLAYBLAST_ANALYSIS_PROMPT,
-        userPrompt: `컷 코드: ${cut_code}\n플레이블라스트 파일: ${file.r2_key}\n파일 크기: ${file.file_size} bytes\n\n현재 영상 직접 분석 미지원. 추후 키프레임 추출 + 멀티이미지 분석으로 업그레이드.`
+        userPrompt: `而?肄붾뱶: ${cut_code}\n?뚮젅?대툝?쇱뒪???뚯씪: ${file.r2_key}\n?뚯씪 ?ш린: ${file.file_size} bytes\n\n?꾩옱 ?곸긽 吏곸젒 遺꾩꽍 誘몄??? 異뷀썑 ?ㅽ봽?덉엫 異붿텧 + 硫?곗씠誘몄? 遺꾩꽍?쇰줈 ?낃렇?덉씠??`
       });
     }
 
     if (analysisResult) {
       const resultId = `AR_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
-      // 기존 버전 조회
+      // 湲곗〈 踰꾩쟾 議고쉶
       const existing = await env.DB.prepare(
         `SELECT MAX(version) as max_ver FROM analysis_results WHERE cut_code = ? AND analysis_type = ?`
       ).bind(cut_code, file.file_type).first();
@@ -7946,7 +8386,7 @@ async function analysisRunOpus(request, env, user) {
     }
   }
 
-  // Combined 분석 (모든 개별 분석 결과 종합)
+  // Combined 遺꾩꽍 (紐⑤뱺 媛쒕퀎 遺꾩꽍 寃곌낵 醫낇빀)
   if (results.length > 1) {
     const allResults = await env.DB.prepare(
       `SELECT analysis_type, result_json FROM analysis_results
@@ -7956,12 +8396,12 @@ async function analysisRunOpus(request, env, user) {
 
     if (allResults.results?.length > 1) {
       const combinedInput = allResults.results.map(r =>
-        `### ${r.analysis_type} 분석:\n${r.result_json}`
+        `### ${r.analysis_type} 遺꾩꽍:\n${r.result_json}`
       ).join('\n\n');
 
       const combinedResult = await callOpus47Text(env, {
         systemPrompt: COMBINED_ANALYSIS_PROMPT,
-        userPrompt: `컷 코드: ${cut_code}\n\n다음은 각 파트별 분석 결과입니다. 이를 종합하여 최종 컷 분석을 작성해주세요.\n\n${combinedInput}`
+        userPrompt: `而?肄붾뱶: ${cut_code}\n\n?ㅼ쓬? 媛??뚰듃蹂?遺꾩꽍 寃곌낵?낅땲?? ?대? 醫낇빀?섏뿬 理쒖쥌 而?遺꾩꽍???묒꽦?댁＜?몄슂.\n\n${combinedInput}`
       });
 
       if (combinedResult) {
@@ -7988,12 +8428,12 @@ async function analysisRunOpus(request, env, user) {
 
 
 // =============================================================================
-// Opus 4.7 API 호출 헬퍼
+// Opus 4.7 API ?몄텧 ?ы띁
 // =============================================================================
 
 async function callOpus47Vision(env, { systemPrompt, imageBase64, mediaType, userPrompt }) {
   const apiKey = env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY 미설정');
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY 誘몄꽕?');
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -8035,7 +8475,7 @@ async function callOpus47Vision(env, { systemPrompt, imageBase64, mediaType, use
 
 async function callOpus47Text(env, { systemPrompt, userPrompt }) {
   const apiKey = env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY 미설정');
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY 誘몄꽕?');
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -8081,47 +8521,47 @@ function calculateCost(usage, model) {
 // System Prompts for Opus 4.7 Analysis
 // =============================================================================
 
-const STORYBOARD_ANALYSIS_PROMPT = `당신은 3D 애니메이션 프로덕션 전문 스토리보드 분석가입니다.
-TV시리즈 '터보원' (26부작, 로봇 액션 3D 애니메이션)의 스토리보드를 분석합니다.
+const STORYBOARD_ANALYSIS_PROMPT = `?뱀떊? 3D ?좊땲硫붿씠???꾨줈?뺤뀡 ?꾨Ц ?ㅽ넗由щ낫??遺꾩꽍媛?낅땲??
+TV?쒕━利?'?곕낫?? (26遺?? 濡쒕큸 ?≪뀡 3D ?좊땲硫붿씠?????ㅽ넗由щ낫?쒕? 遺꾩꽍?⑸땲'?
 
-분석 결과를 반드시 다음 JSON 형식으로 출력하세요:
+遺꾩꽍 寃곌낵瑜?諛섎뱶???ㅼ쓬 JSON ?뺤떇?쇰줈 異쒕젰?섏꽭??
 {
-  "shot_type": "CU/MS/WS/ECU/OTS/2SHOT 등",
-  "camera_angle": "Eye Level/High Angle/Low Angle/Dutch/Bird's Eye 등",
-  "composition": "삼분법/대칭/리딩라인/프레임인프레임 등",
-  "characters": [{"name": "캐릭터명", "position": "화면 내 위치", "expression": "표정/감정"}],
-  "directing_intent": "이 컷의 연출 의도 (1-2문장)",
-  "action_description": "이 컷에서 일어나는 액션 (1-2문장)",
-  "mood_atmosphere": "분위기/톤",
-  "continuity_notes": "컨티뉴티 주의사항",
-  "seedance_visual_keywords": ["키워드1", "키워드2", ...],
+  "shot_type": "CU/MS/WS/ECU/OTS/2SHOT ??,
+  "camera_angle": "Eye Level/High Angle/Low Angle/Dutch/Bird's Eye ??,
+  "composition": "?쇰텇踰??移?由щ뵫?쇱씤/?꾨젅?꾩씤?꾨젅????,
+  "characters": [{"name": "罹먮┃?곕챸", "position": "?붾㈃ ???꾩튂", "expression": "?쒖젙/媛먯젙"}],
+  "directing_intent": "??而룹쓽 ?곗텧 ?섎룄 (1-2臾몄옣)",
+  "action_description": "??而룹뿉???쇱뼱?섎뒗 ?≪뀡 (1-2臾몄옣)",
+  "mood_atmosphere": "遺꾩쐞湲???,
+  "continuity_notes": "而⑦떚?댄떚 二쇱쓽?ы빆",
+  "seedance_visual_keywords": ["?ㅼ썙??", "?ㅼ썙??", ...],
   "quality_score": 1-10,
-  "improvement_suggestions": ["제안1", "제안2"]
+  "improvement_suggestions": ["?쒖븞1", "?쒖븞2"]
 }`;
 
-const GUIDE_ANALYSIS_PROMPT = `당신은 3D 애니메이션 연출가이드 분석 전문가입니다.
-TV시리즈 '터보원' (로봇 액션 3D 애니메이션)의 연출가이드를 분석합니다.
+const GUIDE_ANALYSIS_PROMPT = `?뱀떊? 3D ?좊땲硫붿씠???곗텧媛?대뱶 遺꾩꽍 ?꾨Ц媛?낅땲??
+TV?쒕━利?'?곕낫?? (濡쒕큸 ?≪뀡 3D ?좊땲硫붿씠?????곗텧媛?대뱶瑜?遺꾩꽍?⑸땲'?
 
-분석 결과를 반드시 다음 JSON 형식으로 출력하세요:
+遺꾩꽍 寃곌낵瑜?諛섎뱶???ㅼ쓬 JSON ?뺤떇?쇰줈 異쒕젰?섏꽭??
 {
-  "camera_move": "Pan/Tilt/Dolly/Crane/Handheld/Zoom/Static 등",
-  "camera_start": "시작 포지션 설명",
-  "camera_end": "종료 포지션 설명",
-  "camera_easing": "Linear/EaseIn/EaseOut/EaseInOut/Smooth 등",
-  "cut_duration_sec": 숫자,
-  "key_moments": [{"frame": "프레임/시간", "description": "설명"}],
-  "rhythm": "빠름/보통/느림/가속/감속",
-  "directing_notes": "연출 의도와 특기사항",
-  "transition_in": "이전 컷에서 넘어오는 방식",
-  "transition_out": "다음 컷으로 넘어가는 방식",
-  "audio_cue": "사운드/음악 큐 (있다면)",
-  "seedance_motion_keywords": ["모션키워드1", "모션키워드2"]
+  "camera_move": "Pan/Tilt/Dolly/Crane/Handheld/Zoom/Static ??,
+  "camera_start": "?쒖옉 ?ъ????ㅻ챸",
+  "camera_end": "醫낅즺 ?ъ????ㅻ챸",
+  "camera_easing": "Linear/EaseIn/EaseOut/EaseInOut/Smooth ??,
+  "cut_duration_sec": ?レ옄,
+  "key_moments": [{"frame": "?꾨젅???쒓컙", "description": "?ㅻ챸"}],
+  "rhythm": "鍮좊쫫/蹂댄넻/?먮┝/媛??媛먯냽",
+  "directing_notes": "?곗텧 ?섎룄? ?밴린?ы빆",
+  "transition_in": "?댁쟾 而룹뿉???섏뼱?ㅻ뒗 諛⑹떇",
+  "transition_out": "?ㅼ쓬 而룹쑝濡??섏뼱媛??諛⑹떇",
+  "audio_cue": "?ъ슫???뚯븙 ??(?덈떎硫?",
+  "seedance_motion_keywords": ["紐⑥뀡?ㅼ썙??", "紐⑥뀡?ㅼ썙??"]
 }`;
 
-const PLAYBLAST_ANALYSIS_PROMPT = `당신은 Disney 12법칙 기반 3D 캐릭터 애니메이션 분석 전문가입니다.
-TV시리즈 '터보원' (로봇 액션 3D 애니메이션)의 Maya 플레이블라스트를 분석합니다.
+const PLAYBLAST_ANALYSIS_PROMPT = `?뱀떊? Disney 12踰뺤튃 湲곕컲 3D 罹먮┃???좊땲硫붿씠??遺꾩꽍 ?꾨Ц媛?낅땲??
+TV?쒕━利?'?곕낫?? (濡쒕큸 ?≪뀡 3D ?좊땲硫붿씠????Maya ?뚮젅?대툝?쇱뒪?몃? 遺꾩꽍?⑸땲'?
 
-분석 결과를 반드시 다음 JSON 형식으로 출력하세요:
+遺꾩꽍 寃곌낵瑜?諛섎뱶???ㅼ쓬 JSON ?뺤떇?쇰줈 異쒕젰?섏꽭??
 {
   "disney_12_principles": {
     "squash_stretch": {"applied": true/false, "score": 1-10, "note": ""},
@@ -8137,28 +8577,28 @@ TV시리즈 '터보원' (로봇 액션 3D 애니메이션)의 Maya 플레이블�
     "solid_drawing": {"applied": true/false, "score": 1-10, "note": ""},
     "appeal": {"applied": true/false, "score": 1-10, "note": ""}
   },
-  "total_score": 숫자,
-  "pose_keys": ["주요 포즈 설명1", "주요 포즈 설명2"],
-  "weight_shift": "웨이트 시프트 품질 평가",
-  "arc_quality": "아크 품질 평가",
-  "emotion_delivery": "감정 전달 평가",
-  "improvement_suggestions": ["개선제안1", "개선제안2"],
-  "seedance_animation_keywords": ["애니메이션키워드1", "애니메이션키워드2"]
+  "total_score": ?レ옄,
+  "pose_keys": ["二쇱슂 ?ъ쫰 ?ㅻ챸1", "二쇱슂 ?ъ쫰 ?ㅻ챸2"],
+  "weight_shift": "?⑥씠???쒗봽???덉쭏 ?됯?",
+  "arc_quality": "?꾪겕 ?덉쭏 ?됯?",
+  "emotion_delivery": "媛먯젙 ?꾨떖 ?됯?",
+  "improvement_suggestions": ["媛쒖꽑?쒖븞1", "媛쒖꽑?쒖븞2"],
+  "seedance_animation_keywords": ["?좊땲硫붿씠?섑궎?뚮뱶1", "?좊땲硫붿씠?섑궎?뚮뱶2"]
 }`;
 
-const COMBINED_ANALYSIS_PROMPT = `당신은 3D 애니메이션 프로덕션 총괄 분석가입니다.
-스토리보드, 연출가이드, 애니메이션(플레이블라스트) 분석 결과를 종합합니다.
+const COMBINED_ANALYSIS_PROMPT = `?뱀떊? 3D ?좊땲硫붿씠???꾨줈?뺤뀡 珥앷큵 遺꾩꽍媛?낅땲??
+?ㅽ넗由щ낫?? ?곗텧媛?대뱶, ?좊땲硫붿씠???뚮젅?대툝?쇱뒪?? 遺꾩꽍 寃곌낵瑜?醫낇빀?⑸땲??
 
-각 파트별 분석을 종합하여 다음 JSON 형식으로 최종 분석을 작성하세요:
+媛??뚰듃蹂?遺꾩꽍??醫낇빀?섏뿬 ?ㅼ쓬 JSON ?뺤떇?쇰줈 理쒖쥌 遺꾩꽍???묒꽦?섏꽭??
 {
-  "cut_summary": "이 컷의 종합 요약 (2-3문장)",
+  "cut_summary": "??而룹쓽 醫낇빀 ?붿빟 (2-3臾몄옣)",
   "production_readiness": "production_ready / needs_revision / major_revision",
   "readiness_score": 1-10,
-  "storyboard_to_animation_match": "스토리보드와 애니메이션 일치도 평가",
-  "guide_compliance": "연출가이드 준수도 평가",
-  "continuity_issues": ["컨티뉴이티 문제점"],
-  "final_notes": "최종 코멘트",
-  "seedance_prompt_draft": "Seedance 2.0 프롬프트 초안 (영어)",
+  "storyboard_to_animation_match": "?ㅽ넗由щ낫?쒖? ?좊땲硫붿씠???쇱튂???됯?",
+  "guide_compliance": "?곗텧媛?대뱶 以?섎룄 ?됯?",
+  "continuity_issues": ["而⑦떚?댁씠??臾몄젣??],
+  "final_notes": "理쒖쥌 肄붾찘??,
+  "seedance_prompt_draft": "Seedance 2.0 ?꾨＼?꾪듃 珥덉븞 (?곸뼱)",
   "seedance_params": {
     "mode": "omni_reference",
     "resolution": "1280x720",
@@ -8169,7 +8609,7 @@ const COMBINED_ANALYSIS_PROMPT = `당신은 3D 애니메이션 프로덕션 총�
 
 
 // =============================================================================
-// 3. 분석 결과 조회
+// 3. 遺꾩꽍 寃곌낵 議고쉶
 // =============================================================================
 
 async function analysisGetResult(request, env) {
@@ -8177,7 +8617,7 @@ async function analysisGetResult(request, env) {
   const cutCode = url.searchParams.get('cut_code');
   const analysisType = url.searchParams.get('type'); // optional filter
 
-  if (!cutCode) return json({ error: 'cut_code 필수' }, 400);
+  if (!cutCode) return json({ error: 'cut_code ?꾩닔' }, 400);
 
   let query = `SELECT * FROM analysis_results WHERE cut_code = ?`;
   const params = [cutCode];
@@ -8193,7 +8633,7 @@ async function analysisGetResult(request, env) {
 
 
 // =============================================================================
-// 4. 분석 → Obsidian 마크다운
+// 4. 遺꾩꽍 ??Obsidian 留덊겕?ㅼ슫
 // =============================================================================
 
 async function analysisToObsidian(request, env, user) {
@@ -8209,13 +8649,13 @@ async function analysisToObsidian(request, env, user) {
     ).bind(episode_id).all();
     cutCodes = (rows.results || []).map(r => r.cut_code);
   } else {
-    return json({ error: 'cut_code 또는 episode_id 필수' }, 400);
+    return json({ error: 'cut_code ?먮뒗 episode_id ?꾩닔' }, 400);
   }
 
   const generated = [];
 
   for (const cc of cutCodes) {
-    // 최신 버전 분석 결과 가져오기
+    // 理쒖떊 踰꾩쟾 遺꾩꽍 寃곌낵 媛?몄삤湲?
     const analyses = await env.DB.prepare(`
       SELECT ar.* FROM analysis_results ar
       INNER JOIN (
@@ -8230,22 +8670,22 @@ async function analysisToObsidian(request, env, user) {
 
     if (!analyses.results?.length) continue;
 
-    // 파일 정보
+    // ?뚯씪 ?뺣낫
     const files = await env.DB.prepare(
       `SELECT * FROM analysis_files WHERE cut_code = ?`
     ).bind(cc).all();
 
-    // 마크다운 생성
+    // 留덊겕?ㅼ슫 ?앹꽦
     const md = generateCutMarkdown(cc, analyses.results, files.results || []);
 
-    // R2 저장 (Obsidian vault 경로)
+    // R2 ???(Obsidian vault 寃쎈줈)
     const epId = analyses.results[0].episode_id;
-    const r2Path = `obsidian-vault/샷/${epId}/${cc}.md`;
+    const r2Path = `obsidian-vault/??${epId}/${cc}.md`;
     await env.ASSETS.put(r2Path, md, {
       httpMetadata: { contentType: 'text/markdown; charset=utf-8' }
     });
 
-    // 로그 기록
+    // 濡쒓렇 湲곕줉
     const logId = `OL_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     await env.DB.prepare(`
       INSERT INTO analysis_obsidian_log (id, cut_code, episode_id, r2_path)
@@ -8260,20 +8700,19 @@ async function analysisToObsidian(request, env, user) {
 
 
 // =============================================================================
-// 마크다운 생성기
-// =============================================================================
+// 留덊겕?ㅼ슫 ?앹꽦湲?// =============================================================================
 
 function generateCutMarkdown(cutCode, analyses, files) {
   const epId = cutCode.split('_')[0] || 'EP01';
   const cutNum = cutCode.split('_').pop() || cutCode;
   const today = new Date().toISOString().slice(0, 10);
 
-  // 분석 결과 파싱
+  // 遺꾩꽍 寃곌낵 ?뚯떛
   let sbAnalysis = {}, guideAnalysis = {}, pbAnalysis = {}, combinedAnalysis = {};
   for (const a of analyses) {
     try {
       const parsed = typeof a.result_json === 'string' ? JSON.parse(a.result_json) : a.result_json;
-      // result_json이 JSON string이면 한번 더 파싱
+      // result_json??JSON string?대㈃ ?쒕쾲 ???뚯떛
       const data = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
       switch (a.analysis_type) {
         case 'storyboard': sbAnalysis = data; break;
@@ -8281,10 +8720,10 @@ function generateCutMarkdown(cutCode, analyses, files) {
         case 'playblast': pbAnalysis = data; break;
         case 'combined': combinedAnalysis = data; break;
       }
-    } catch (e) { /* 파싱 실패 무시 */ }
+    } catch (e) { /* ?뚯떛 ?ㅽ뙣 臾댁떆 */ }
   }
 
-  // 파일 경로
+  // ?뚯씪 寃쎈줈
   const sbFile = files.find(f => f.file_type === 'storyboard');
   const guideFile = files.find(f => f.file_type === 'guide');
   const pbFile = files.find(f => f.file_type === 'playblast');
@@ -8293,7 +8732,7 @@ function generateCutMarkdown(cutCode, analyses, files) {
 type: cut
 cut_code: "${cutCode}"
 episode: "[[${epId}]]"
-project: "[[터보원 시즌1]]"
+project: "[[?곕낫???쒖쫵1]]"
 status: "${combinedAnalysis.production_readiness || 'analyzed'}"
 readiness_score: ${combinedAnalysis.readiness_score || 0}
 analyzed_by: opus-4.7
@@ -8303,31 +8742,31 @@ tags: [cut, ${epId}, analyzed]
 
 # ${cutCode}
 
-| 항목 | 값 |
+| ??ぉ | 媛?|
 |------|-----|
-| 에피소드 | [[${epId}]] |
-| 컷 번호 | ${cutNum} |
-| 준비도 | ${combinedAnalysis.readiness_score || '-'}/10 |
-| 상태 | ${combinedAnalysis.production_readiness || 'analyzed'} |
-| 분석일 | ${today} |
+| ?먰뵾?뚮뱶 | [[${epId}]] |
+| 而?踰덊샇 | ${cutNum} |
+| 以鍮꾨룄 | ${combinedAnalysis.readiness_score || '-'}/10 |
+| ?곹깭 | ${combinedAnalysis.production_readiness || 'analyzed'} |
+| 遺꾩꽍??| ${today} |
 
 `;
 
-  // 종합 요약
+  // 醫낇빀 ?붿빟
   if (combinedAnalysis.cut_summary) {
-    md += `## 종합 요약\n> ${combinedAnalysis.cut_summary}\n\n`;
+    md += `## 醫낇빀 ?붿빟\n> ${combinedAnalysis.cut_summary}\n\n`;
   }
 
-  // 스토리보드 분석
-  md += `## 스토리보드 분석\n`;
+  // ?ㅽ넗由щ낫??遺꾩꽍
+  md += `## ?ㅽ넗由щ낫??遺꾩꽍\n`;
   if (Object.keys(sbAnalysis).length) {
     md += `
-### 구도
-- **샷 타입**: ${sbAnalysis.shot_type || '-'}
-- **카메라 앵글**: ${sbAnalysis.camera_angle || '-'}
-- **구도 법칙**: ${sbAnalysis.composition || '-'}
+### 援щ룄
+- **?????*: ${sbAnalysis.shot_type || '-'}
+- **移대찓???듦?**: ${sbAnalysis.camera_angle || '-'}
+- **援щ룄 踰뺤튃**: ${sbAnalysis.composition || '-'}
 
-### 캐릭터 배치
+### 罹먮┃??諛곗튂
 `;
     if (sbAnalysis.characters?.length) {
       for (const c of sbAnalysis.characters) {
@@ -8335,59 +8774,57 @@ tags: [cut, ${epId}, analyzed]
       }
     }
     md += `
-### 연출 의도
+### ?곗텧 ?섎룄
 > ${sbAnalysis.directing_intent || '-'}
 
-### 액션
+### ?≪뀡
 > ${sbAnalysis.action_description || '-'}
 
-### 분위기
-> ${sbAnalysis.mood_atmosphere || '-'}
+### 遺꾩쐞湲?> ${sbAnalysis.mood_atmosphere || '-'}
 `;
     if (sbAnalysis.improvement_suggestions?.length) {
-      md += `\n### 개선 제안\n`;
+      md += `\n### 媛쒖꽑 ?쒖븞\n`;
       for (const s of sbAnalysis.improvement_suggestions) {
         md += `- ${s}\n`;
       }
     }
   } else {
-    md += `> 분석 대기중\n`;
+    md += `> 遺꾩꽍 ?湲곗쨷\n`;
   }
   if (sbFile) {
     md += `\n![[${sbFile.filename || cutCode + '_storyboard.png'}]]\n`;
   }
 
-  // 연출가이드 분석
-  md += `\n## 연출가이드 분석\n`;
+  // ?곗텧媛?대뱶 遺꾩꽍
+  md += `\n## ?곗텧媛?대뱶 遺꾩꽍\n`;
   if (Object.keys(guideAnalysis).length) {
     md += `
-### 카메라 워크
-- **카메라 무빙**: ${guideAnalysis.camera_move || '-'}
-- **시작 포지션**: ${guideAnalysis.camera_start || '-'}
-- **종료 포지션**: ${guideAnalysis.camera_end || '-'}
-- **이징**: ${guideAnalysis.camera_easing || '-'}
+### 移대찓???뚰겕
+- **移대찓??臾대튃**: ${guideAnalysis.camera_move || '-'}
+- **?쒖옉 ?ъ???*: ${guideAnalysis.camera_start || '-'}
+- **醫낅즺 ?ъ???*: ${guideAnalysis.camera_end || '-'}
+- **?댁쭠**: ${guideAnalysis.camera_easing || '-'}
 
-### 타이밍
-- **컷 길이**: ${guideAnalysis.cut_duration_sec || '-'} sec
-- **리듬**: ${guideAnalysis.rhythm || '-'}
+### ??대컢
+- **而?湲몄씠**: ${guideAnalysis.cut_duration_sec || '-'} sec
+- **由щ벉**: ${guideAnalysis.rhythm || '-'}
 
-### 키 모먼트
-`;
+### ??紐⑤㉫??`;
     if (guideAnalysis.key_moments?.length) {
       for (const km of guideAnalysis.key_moments) {
         md += `- [${km.frame}] ${km.description}\n`;
       }
     }
-    md += `\n### 연출 노트\n> ${guideAnalysis.directing_notes || '-'}\n`;
+    md += `\n### ?곗텧 ?명듃\n> ${guideAnalysis.directing_notes || '-'}\n`;
   } else {
-    md += `> 분석 대기중\n`;
+    md += `> 遺꾩꽍 ?湲곗쨷\n`;
   }
 
-  // 플레이블라스트 (Disney 12법칙)
-  md += `\n## 애니메이션 분석 (Disney 12법칙)\n`;
+  // ?뚮젅?대툝?쇱뒪??(Disney 12踰뺤튃)
+  md += `\n## ?좊땲硫붿씠??遺꾩꽍 (Disney 12踰뺤튃)\n`;
   if (pbAnalysis.disney_12_principles) {
     const d12 = pbAnalysis.disney_12_principles;
-    md += `| 법칙 | 점수 | 노트 |\n|------|------|------|\n`;
+    md += `| 踰뺤튃 | ?먯닔 | ?명듃 |\n|------|------|------|\n`;
     const principles = [
       ['Squash & Stretch', d12.squash_stretch],
       ['Anticipation', d12.anticipation],
@@ -8407,42 +8844,42 @@ tags: [cut, ${epId}, analyzed]
         md += `| ${name} | ${data.score || '-'}/10 | ${data.note || ''} |\n`;
       }
     }
-    md += `\n**총점**: ${pbAnalysis.total_score || '-'}/120\n`;
+    md += `\n**珥앹젏**: ${pbAnalysis.total_score || '-'}/120\n`;
 
     if (pbAnalysis.improvement_suggestions?.length) {
-      md += `\n### 개선 제안\n`;
+      md += `\n### 媛쒖꽑 ?쒖븞\n`;
       for (const s of pbAnalysis.improvement_suggestions) {
         md += `- ${s}\n`;
       }
     }
   } else {
-    md += `> 분석 대기중\n`;
+    md += `> 遺꾩꽍 ?湲곗쨷\n`;
   }
 
-  // Seedance 프롬프트
-  md += `\n## Seedance 2.0 프롬프트\n`;
+  // Seedance ?꾨＼?꾪듃
+  md += `\n## Seedance 2.0 ?꾨＼?꾪듃\n`;
   if (combinedAnalysis.seedance_prompt_draft) {
     md += `\`\`\`\n${combinedAnalysis.seedance_prompt_draft}\n\`\`\`\n`;
     if (combinedAnalysis.seedance_params) {
       const sp = combinedAnalysis.seedance_params;
-      md += `\n| 파라미터 | 값 |\n|----------|-----|\n`;
-      md += `| 모드 | ${sp.mode || '-'} |\n`;
-      md += `| 해상도 | ${sp.resolution || '-'} |\n`;
-      md += `| 길이 | ${sp.duration || '-'} |\n`;
-      md += `| 모션 강도 | ${sp.motion_strength || '-'} |\n`;
+      md += `\n| ?뚮씪誘명꽣 | 媛?|\n|----------|-----|\n`;
+      md += `| 紐⑤뱶 | ${sp.mode || '-'} |\n`;
+      md += `| ?댁긽??| ${sp.resolution || '-'} |\n`;
+      md += `| 湲몄씠 | ${sp.duration || '-'} |\n`;
+      md += `| 紐⑥뀡 媛뺣룄 | ${sp.motion_strength || '-'} |\n`;
     }
   } else {
-    md += `> 분석 완료 후 자동 생성\n`;
+    md += `> 遺꾩꽍 ?꾨즺 ???먮룞 ?앹꽦\n`;
   }
 
-  // 연결 노트
-  md += `\n## 연결\n`;
-  md += `- 에피소드: [[${epId}]]\n`;
-  md += `- 프로젝트: [[터보원 시즌1]]\n`;
+  // ?곌껐 ?명듃
+  md += `\n## ?곌껐\n`;
+  md += `- ?먰뵾?뚮뱶: [[${epId}]]\n`;
+  md += `- ?꾨줈?앺듃: [[?곕낫???쒖쫵1]]\n`;
 
-  // 버전 히스토리
-  md += `\n## 분석 히스토리\n`;
-  md += `| 날짜 | 타입 | 모델 |\n|------|------|------|\n`;
+  // 踰꾩쟾 ?덉뒪?좊━
+  md += `\n## 遺꾩꽍 ?덉뒪?좊━\n`;
+  md += `| ?좎쭨 | ???| 紐⑤뜽 |\n|------|------|------|\n`;
   for (const a of analyses) {
     md += `| ${new Date(a.created_at * 1000).toISOString().slice(0, 10)} | ${a.analysis_type} | ${a.model} |\n`;
   }
@@ -8452,30 +8889,30 @@ tags: [cut, ${epId}, analyzed]
 
 
 // =============================================================================
-// 5. 배치 분석
+// 5. 諛곗튂 遺꾩꽍
 // =============================================================================
 
 async function analysisBatch(request, env, user) {
   const body = await request.json();
   const { episode_id, file_types = ['storyboard'] } = body;
 
-  if (!episode_id) return json({ error: 'episode_id 필수' }, 400);
+  if (!episode_id) return json({ error: 'episode_id ?꾩닔' }, 400);
 
-  // 해당 에피소드의 모든 컷 파일 조회
+  // ?대떦 ?먰뵾?뚮뱶??紐⑤뱺 而??뚯씪 議고쉶
   const files = await env.DB.prepare(
     `SELECT DISTINCT cut_code FROM analysis_files WHERE episode_id = ? AND file_type IN (${file_types.map(() => '?').join(',')})`
   ).bind(episode_id, ...file_types).all();
 
   if (!files.results?.length) {
-    return json({ error: `${episode_id}에 업로드된 파일 없음` }, 404);
+    return json({ error: `${episode_id}???낅줈?쒕맂 ?뚯씪 ?놁쓬` }, 404);
   }
 
-  // 배치 작업 ID
+  // 諛곗튂 ?묒뾽 ID
   const batchId = `BATCH_${Date.now()}`;
   const cutCodes = files.results.map(r => r.cut_code);
 
-  // 주의: Worker 실행시간 제한(30초)으로 인해 전체 에피소드 한번에 불가
-  // 첫 5컷만 즉시 실행, 나머지는 큐잉
+  // 二쇱쓽: Worker ?ㅽ뻾?쒓컙 ?쒗븳(30珥??쇰줈 ?명빐 ?꾩껜 ?먰뵾?뚮뱶 ?쒕쾲??遺덇?
+  // 泥?5而룸쭔 利됱떆 ?ㅽ뻾, ?섎㉧吏???먯엵
   const immediate = cutCodes.slice(0, 5);
   const queued = cutCodes.slice(5);
 
@@ -8504,14 +8941,14 @@ async function analysisBatch(request, env, user) {
     results,
     queued_cuts: queued,
     note: queued.length > 0 ?
-      `Worker 30초 제한으로 ${queued.length}컷은 추가 호출 필요. /api/analysis/analyze로 개별 실행하세요.` :
+      `Worker 30珥??쒗븳?쇰줈 ${queued.length}而룹? 異붽? ?몄텧 ?꾩슂. /api/analysis/analyze濡?媛쒕퀎 ?ㅽ뻾?섏꽭??` :
       'All cuts analyzed'
   });
 }
 
 
 // =============================================================================
-// 6. 분석 히스토리
+// 6. 遺꾩꽍 ?덉뒪?좊━
 // =============================================================================
 
 async function analysisHistory(request, env) {
@@ -8534,16 +8971,16 @@ async function analysisHistory(request, env) {
 
 
 // =============================================================================
-// 7. Seedance 프롬프트 생성
+// 7. Seedance ?꾨＼?꾪듃 ?앹꽦
 // =============================================================================
 
 async function analysisGeneratePrompt(request, env, user) {
   const body = await request.json();
   const { cut_code } = body;
 
-  if (!cut_code) return json({ error: 'cut_code 필수' }, 400);
+  if (!cut_code) return json({ error: 'cut_code ?꾩닔' }, 400);
 
-  // 모든 분석 결과 수집
+  // 紐⑤뱺 遺꾩꽍 寃곌낵 ?섏쭛
   const analyses = await env.DB.prepare(`
     SELECT ar.* FROM analysis_results ar
     INNER JOIN (
@@ -8556,7 +8993,7 @@ async function analysisGeneratePrompt(request, env, user) {
   `).bind(cut_code).all();
 
   if (!analyses.results?.length) {
-    return json({ error: `${cut_code} 분석 결과 없음. 먼저 /api/analysis/analyze 실행` }, 404);
+    return json({ error: `${cut_code} 遺꾩꽍 寃곌낵 ?놁쓬. 癒쇱? /api/analysis/analyze ?ㅽ뻾` }, 404);
   }
 
   const analysisContext = analyses.results.map(a =>
@@ -8565,7 +9002,7 @@ async function analysisGeneratePrompt(request, env, user) {
 
   const result = await callOpus47Text(env, {
     systemPrompt: SEEDANCE_PROMPT_GENERATION,
-    userPrompt: `컷 코드: ${cut_code}\n\n분석 결과:\n${analysisContext}\n\n이 분석을 바탕으로 Seedance 2.0 최종 프롬프트를 생성해주세요.`
+    userPrompt: `而?肄붾뱶: ${cut_code}\n\n遺꾩꽍 寃곌낵:\n${analysisContext}\n\n??遺꾩꽍??諛뷀깢?쇰줈 Seedance 2.0 理쒖쥌 ?꾨＼?꾪듃瑜??앹꽦?댁＜?몄슂.`
   });
 
   return json({
@@ -8576,20 +9013,20 @@ async function analysisGeneratePrompt(request, env, user) {
   });
 }
 
-const SEEDANCE_PROMPT_GENERATION = `당신은 Seedance 2.0 AI 영상 생성 프롬프트 전문가입니다.
-스토리보드/연출가이드/애니메이션 분석 결과를 바탕으로 최적의 Seedance 2.0 프롬프트를 생성합니다.
+const SEEDANCE_PROMPT_GENERATION = `?뱀떊? Seedance 2.0 AI ?곸긽 ?앹꽦 ?꾨＼?꾪듃 ?꾨Ц媛?낅땲??
+?ㅽ넗由щ낫???곗텧媛?대뱶/?좊땲硫붿씠??遺꾩꽍 寃곌낵瑜?諛뷀깢?쇰줈 理쒖쟻??Seedance 2.0 ?꾨＼?꾪듃瑜??앹꽦?⑸땲??
 
-규칙:
-1. 프롬프트는 영어로 작성
-2. Seedance 2.0 omni_reference 모드 (Maya playblast를 레퍼런스로 사용)
-3. 카메라 무빙은 분석된 연출가이드를 정확히 반영
-4. Disney 12법칙 분석에서 부족한 부분을 프롬프트로 보강
-5. 캐릭터 감정과 액션을 구체적으로 묘사
+洹쒖튃:
+1. ?꾨＼?꾪듃???곸뼱濡??묒꽦
+2. Seedance 2.0 omni_reference 紐⑤뱶 (Maya playblast瑜??덊띁?곗뒪濡??ъ슜)
+3. 移대찓??臾대튃? 遺꾩꽍???곗텧媛?대뱶瑜??뺥솗??諛섏쁺
+4. Disney 12踰뺤튃 遺꾩꽍?먯꽌 遺議깊븳 遺遺꾩쓣 ?꾨＼?꾪듃濡?蹂닿컯
+5. 罹먮┃??媛먯젙怨??≪뀡??援ъ껜?곸쑝濡?臾섏궗
 
-출력 형식 (JSON):
+異쒕젰 ?뺤떇 (JSON):
 {
-  "prompt": "Seedance 2.0 프롬프트 (영어, 200단어 이내)",
-  "negative_prompt": "네거티브 프롬프트",
+  "prompt": "Seedance 2.0 ?꾨＼?꾪듃 (?곸뼱, 200?⑥뼱 ?대궡)",
+  "negative_prompt": "?ㅺ굅?곕툕 ?꾨＼?꾪듃",
   "params": {
     "mode": "omni_reference",
     "resolution": "1280x720",
@@ -8599,10 +9036,10 @@ const SEEDANCE_PROMPT_GENERATION = `당신은 Seedance 2.0 AI 영상 생성 프�
     "style_strength": 0.7,
     "reference_strength": 0.8
   },
-  "notes_ko": "한국어 참고 노트"
+  "notes_ko": "?쒓뎅??李멸퀬 ?명듃"
 }`;
 
-// ===== AI LOG API — /api/ai-log/* =====
+// ===== AI LOG API ??/api/ai-log/* =====
 
 async function ensureAILogTables(db) {
   await db.prepare(`
@@ -8769,7 +9206,7 @@ async function handleAILogAPI(path, request, env) {
   return json({ error: 'Not found' }, 404);
 }
 
-// ===== VIDEO EDIT AI API — /api/video-edit/* =====
+// ===== VIDEO EDIT AI API ??/api/video-edit/* =====
 async function ensureVideoEditTables(db) {
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS video_edit_jobs (
@@ -8806,7 +9243,7 @@ function buildVideoEditMarkdown(job) {
   const result = safeJsonParse(job.result_json, null);
   const sourceLines = Array.isArray(sources) && sources.length
     ? sources.map(s => `- ${s.filename || s.key || 'source'}: ${s.url || s.r2_key || s.key || ''}`).join('\n')
-    : '- 없음';
+    : '- ?놁쓬';
 
   return `# ${job.id} Video Edit AI Log
 
@@ -8970,9 +9407,8 @@ async function handleVideoEditAPI(path, request, env) {
   return json({ error: 'Not found' }, 404);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// FEEDBACK LOOP API — /api/feedback/*
-// ═══════════════════════════════════════════════════════════════
+// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// FEEDBACK LOOP API ??/api/feedback/*
+// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
 async function handleFeedbackAPI(path, request, env) {
   const method = request.method;
   const db = env.DB;
@@ -8982,7 +9418,7 @@ async function handleFeedbackAPI(path, request, env) {
 
   const isAdminOrPd = user.role === 'admin' || user.role === 'pd';
 
-  // ── GET /api/feedback/stats ─────────────────────────────────
+  // ?? GET /api/feedback/stats ?????????????????????????????????
   if (path === '/api/feedback/stats' && method === 'GET') {
     const total = await db.prepare('SELECT COUNT(*) as c FROM feedback').first();
     const byStatus = await db.prepare(
@@ -9003,13 +9439,13 @@ async function handleFeedbackAPI(path, request, env) {
     });
   }
 
-  // ── POST /api/feedback/analyze (stub) ───────────────────────
+  // ?? POST /api/feedback/analyze (stub) ???????????????????????
   if (path === '/api/feedback/analyze' && method === 'POST') {
     if (!isAdminOrPd) return json({ error: 'Forbidden' }, 403);
-    return json({ success: true, message: 'AI 분석 기능은 추후 구현 예정입니다.' });
+    return json({ success: true, message: 'AI 遺꾩꽍 湲곕뒫? 異뷀썑 援ы쁽 ?덉젙?낅땲??' });
   }
 
-  // ── POST /api/feedback — 피드백 생성 ───────────────────────
+  // ?? POST /api/feedback ???쇰뱶諛??앹꽦 ???????????????????????
   if (path === '/api/feedback' && method === 'POST') {
     const body = await request.json();
     if (!body.title) return json({ error: 'title is required' }, 400);
@@ -9030,7 +9466,7 @@ async function handleFeedbackAPI(path, request, env) {
     return json({ success: true, id: result.meta?.last_row_id });
   }
 
-  // ── GET /api/feedback — 목록 ────────────────────────────────
+  // ?? GET /api/feedback ??紐⑸줉 ????????????????????????????????
   if (path === '/api/feedback' && method === 'GET') {
     const url = new URL(request.url);
     const status   = url.searchParams.get('status');
@@ -9050,19 +9486,19 @@ async function handleFeedbackAPI(path, request, env) {
     return json({ success: true, items: rows.results });
   }
 
-  // ── 파라미터 라우트 파싱 ────────────────────────────────────
+  // ?? ?뚮씪誘명꽣 ?쇱슦???뚯떛 ????????????????????????????????????
   const idMatch      = path.match(/^\/api\/feedback\/(\d+)$/);
   const statusMatch  = path.match(/^\/api\/feedback\/(\d+)\/status$/);
   const commentMatch = path.match(/^\/api\/feedback\/(\d+)\/comments$/);
 
-  // ── GET /api/feedback/:id ───────────────────────────────────
+  // ?? GET /api/feedback/:id ???????????????????????????????????
   if (idMatch && method === 'GET') {
     const row = await db.prepare('SELECT * FROM feedback WHERE id=?').bind(idMatch[1]).first();
     if (!row) return json({ error: 'Not found' }, 404);
     return json({ success: true, item: row });
   }
 
-  // ── PUT /api/feedback/:id — 수정 (작성자 또는 admin/pd) ─────
+  // ?? PUT /api/feedback/:id ???섏젙 (?묒꽦???먮뒗 admin/pd) ?????
   if (idMatch && method === 'PUT') {
     const row = await db.prepare('SELECT * FROM feedback WHERE id=?').bind(idMatch[1]).first();
     if (!row) return json({ error: 'Not found' }, 404);
@@ -9082,7 +9518,7 @@ async function handleFeedbackAPI(path, request, env) {
     return json({ success: true });
   }
 
-  // ── PUT /api/feedback/:id/status — 상태 변경 (admin/pd 전용)
+  // ?? PUT /api/feedback/:id/status ???곹깭 蹂寃?(admin/pd ?꾩슜)
   if (statusMatch && method === 'PUT') {
     if (!isAdminOrPd) return json({ error: 'Forbidden' }, 403);
     const body = await request.json();
@@ -9099,7 +9535,7 @@ async function handleFeedbackAPI(path, request, env) {
     return json({ success: true });
   }
 
-  // ── DELETE /api/feedback/:id — 삭제 (admin 전용) ────────────
+  // ?? DELETE /api/feedback/:id ????젣 (admin ?꾩슜) ????????????
   if (idMatch && method === 'DELETE') {
     if (user.role !== 'admin') return json({ error: 'Forbidden' }, 403);
     await db.prepare('DELETE FROM feedback_comments WHERE feedback_id=?').bind(idMatch[1]).run();
@@ -9107,11 +9543,11 @@ async function handleFeedbackAPI(path, request, env) {
     return json({ success: true });
   }
 
-  // ── POST /api/feedback/:id/comments — 코멘트 추가 ───────────
+  // ?? POST /api/feedback/:id/comments ??肄붾찘??異붽? ???????????
   if (commentMatch && method === 'POST') {
     const body = await request.json();
     if (!body.body) return json({ error: 'body is required' }, 400);
-    // feedback 존재 확인
+    // feedback 議댁옱 ?뺤씤
     const fb = await db.prepare('SELECT id FROM feedback WHERE id=?').bind(commentMatch[1]).first();
     if (!fb) return json({ error: 'Feedback not found' }, 404);
     const result = await db.prepare(
@@ -9123,12 +9559,12 @@ async function handleFeedbackAPI(path, request, env) {
       user.name || user.email || null,
       body.body
     ).run();
-    // 코멘트 추가 시 feedback updated_at 갱신
+    // 肄붾찘??異붽? ??feedback updated_at 媛깆떊
     await db.prepare("UPDATE feedback SET updated_at=datetime('now') WHERE id=?").bind(commentMatch[1]).run();
     return json({ success: true, id: result.meta?.last_row_id });
   }
 
-  // ── GET /api/feedback/:id/comments — 코멘트 목록 ────────────
+  // ?? GET /api/feedback/:id/comments ??肄붾찘??紐⑸줉 ????????????
   if (commentMatch && method === 'GET') {
     const rows = await db.prepare(
       'SELECT * FROM feedback_comments WHERE feedback_id=? ORDER BY created_at ASC'
@@ -9139,7 +9575,7 @@ async function handleFeedbackAPI(path, request, env) {
   return json({ error: 'Not found' }, 404);
 }
 
-// ===== ADMIN API — /api/admin/* (admin 전용) =====
+// ===== ADMIN API ??/api/admin/* (admin ?꾩슜) =====
 async function handleAdminAPI(path, req, env) {
   const user = await authenticateAny(req, env);
   if (!user || user.role !== 'admin') return json({ error: 'Admin only' }, 403);
@@ -9148,12 +9584,12 @@ async function handleAdminAPI(path, req, env) {
   const method = req.method;
   const url = new URL(req.url);
 
-  // ── GET /api/admin/ai-costs — AI 비용 요약 ──────────────────
+  // ?? GET /api/admin/ai-costs ??AI 鍮꾩슜 ?붿빟 ??????????????????
   if (path === '/api/admin/ai-costs' && method === 'GET') {
     const days = parseInt(url.searchParams.get('days') || '30');
     const since = Date.now() - days * 86400000;
 
-    // 모델별 토큰 집계
+    // 紐⑤뜽蹂??좏겙 吏묎퀎
     const byModel = await db.prepare(`
       SELECT model,
         COUNT(*) as call_count,
@@ -9164,7 +9600,7 @@ async function handleAdminAPI(path, req, env) {
       GROUP BY model ORDER BY total_output DESC
     `).bind(since).all();
 
-    // 엔드포인트별 집계
+    // ?붾뱶?ъ씤?몃퀎 吏묎퀎
     const byEndpoint = await db.prepare(`
       SELECT endpoint,
         COUNT(*) as call_count,
@@ -9175,7 +9611,7 @@ async function handleAdminAPI(path, req, env) {
       GROUP BY endpoint ORDER BY call_count DESC
     `).bind(since).all();
 
-    // 일별 추이
+    // ?쇰퀎 異붿씠
     const daily = await db.prepare(`
       SELECT date(created_at/1000, 'unixepoch') as day,
         COUNT(*) as calls,
@@ -9186,7 +9622,7 @@ async function handleAdminAPI(path, req, env) {
       GROUP BY day ORDER BY day DESC LIMIT 30
     `).bind(since).all();
 
-    // 비용 계산 (USD, per 1M tokens)
+    // 鍮꾩슜 怨꾩궛 (USD, per 1M tokens)
     const pricing = {
       'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
       'claude-sonnet-4-5-20250514': { input: 3.00, output: 15.00 },
@@ -9211,7 +9647,7 @@ async function handleAdminAPI(path, req, env) {
     });
   }
 
-  // ── GET /api/admin/ai-costs/users — 사용자별 비용 ──────────
+  // ?? GET /api/admin/ai-costs/users ???ъ슜?먮퀎 鍮꾩슜 ??????????
   if (path === '/api/admin/ai-costs/users' && method === 'GET') {
     const days = parseInt(url.searchParams.get('days') || '30');
     const since = Date.now() - days * 86400000;
@@ -9233,7 +9669,7 @@ async function handleAdminAPI(path, req, env) {
   return json({ error: 'Not found' }, 404);
 }
 
-// ===== APPROVALS API — /api/approvals/* (승인요청 시스템) =====
+// ===== APPROVALS API ??/api/approvals/* (?뱀씤?붿껌 ?쒖뒪?? =====
 async function handleApprovalsAPI(path, req, env) {
   const user = await authenticateAny(req, env);
   if (!user) return json({ error: 'Unauthorized' }, 401);
@@ -9242,7 +9678,7 @@ async function handleApprovalsAPI(path, req, env) {
   const method = req.method;
   const isAdminOrPd = user.role === 'admin' || user.role === 'pd';
 
-  // 테이블 자동 생성 (첫 호출 시)
+  // ?뚯씠釉??먮룞 ?앹꽦 (泥??몄텧 ??
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS approval_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -9262,7 +9698,7 @@ async function handleApprovalsAPI(path, req, env) {
     )
   `).run();
 
-  // ── POST /api/approvals — 승인요청 생성 ────────────────────
+  // ?? POST /api/approvals ???뱀씤?붿껌 ?앹꽦 ????????????????????
   if (path === '/api/approvals' && method === 'POST') {
     const { type, title, description, target_data } = await req.json();
     if (!type || !title) return json({ error: 'type and title required' }, 400);
@@ -9275,18 +9711,18 @@ async function handleApprovalsAPI(path, req, env) {
       VALUES (?, ?, ?, ?, ?, ?)
     `).bind(user.id, user.name || user.email, type, title, description || null, target_data ? JSON.stringify(target_data) : null).run();
 
-    // admin/pd에게 알림 생성
+    // admin/pd?먭쾶 ?뚮┝ ?앹꽦
     const admins = await db.prepare("SELECT id FROM members WHERE role IN ('admin','pd')").all();
     for (const admin of (admins.results || [])) {
       await db.prepare(
         "INSERT INTO notifications (user_id, type, title, body) VALUES (?, 'approval', ?, ?)"
-      ).bind(admin.id, `승인요청: ${title}`, `${user.name || '사용자'}님이 ${type} 승인을 요청했습니다`).run();
+      ).bind(admin.id, `Approval: ${title}`, `${user.name || 'user'} requested ${type} approval`).run();
     }
 
     return json({ success: true, id: result.meta?.last_row_id });
   }
 
-  // ── GET /api/approvals/stats — 통계 (admin/pd) ─────────────
+  // ?? GET /api/approvals/stats ???듦퀎 (admin/pd) ?????????????
   if (path === '/api/approvals/stats' && method === 'GET') {
     if (!isAdminOrPd) return json({ error: 'Forbidden' }, 403);
 
@@ -9300,7 +9736,7 @@ async function handleApprovalsAPI(path, req, env) {
     return json({ success: true, by_status: stats.results || [], pending_by_type: byType.results || [] });
   }
 
-  // ── GET /api/approvals — 승인요청 목록 ─────────────────────
+  // ?? GET /api/approvals ???뱀씤?붿껌 紐⑸줉 ?????????????????????
   if (path === '/api/approvals' && method === 'GET') {
     const url = new URL(req.url);
     const status = url.searchParams.get('status');
@@ -9321,7 +9757,7 @@ async function handleApprovalsAPI(path, req, env) {
     return json({ success: true, approvals: rows.results || [] });
   }
 
-  // ── GET /api/approvals/:id — 상세 ──────────────────────────
+  // ?? GET /api/approvals/:id ???곸꽭 ??????????????????????????
   const idMatch = path.match(/^\/api\/approvals\/(\d+)$/);
   if (idMatch && method === 'GET') {
     const row = await db.prepare('SELECT * FROM approval_requests WHERE id=?').bind(idMatch[1]).first();
@@ -9330,7 +9766,7 @@ async function handleApprovalsAPI(path, req, env) {
     return json({ success: true, approval: row });
   }
 
-  // ── PUT /api/approvals/:id — 승인/반려 (admin/pd 전용) ─────
+  // ?? PUT /api/approvals/:id ???뱀씤/諛섎젮 (admin/pd ?꾩슜) ?????
   if (idMatch && method === 'PUT') {
     if (!isAdminOrPd) return json({ error: 'Forbidden' }, 403);
 
@@ -9342,19 +9778,19 @@ async function handleApprovalsAPI(path, req, env) {
       WHERE id=?
     `).bind(status, user.id, user.name || user.email, review_comment || null, idMatch[1]).run();
 
-    // 요청자에게 알림
+    // ?붿껌?먯뿉寃??뚮┝
     const row = await db.prepare('SELECT requester_id, title FROM approval_requests WHERE id=?').bind(idMatch[1]).first();
     if (row) {
-      const statusKr = status === 'approved' ? '승인됨' : '반려됨';
+      const statusKr = status === 'approved' ? 'approved' : 'rejected';
       await db.prepare(
         "INSERT INTO notifications (user_id, type, title, body) VALUES (?, 'approval_result', ?, ?)"
-      ).bind(row.requester_id, `${statusKr}: ${row.title}`, review_comment || `${user.name || 'Admin'}이(가) ${statusKr} 처리했습니다`).run();
+      ).bind(row.requester_id, `${statusKr}: ${row.title}`, review_comment || `${user.name || 'Admin'}??媛) ${statusKr} 泥섎━?덉뒿?덈떎`).run();
     }
 
     return json({ success: true, status });
   }
 
-  // ── DELETE /api/approvals/:id — 삭제 (작성자 또는 admin) ───
+  // ?? DELETE /api/approvals/:id ????젣 (?묒꽦???먮뒗 admin) ???
   if (idMatch && method === 'DELETE') {
     const row = await db.prepare('SELECT requester_id FROM approval_requests WHERE id=?').bind(idMatch[1]).first();
     if (!row) return json({ error: 'Not found' }, 404);
@@ -9368,7 +9804,7 @@ async function handleApprovalsAPI(path, req, env) {
 }
 
 // ===================================================================
-// NAS API — Synology File Station via CF Tunnel
+// NAS API ??Synology File Station via CF Tunnel
 // Secrets: NAS_API_URL, NAS_ACCOUNT, NAS_PASSWORD
 // ===================================================================
 
@@ -9380,7 +9816,24 @@ const NAS_HEAVY_EXT = new Set([
 ]);
 
 async function getNasConfig(env) {
-  return { url: env.NAS_API_URL || '', account: env.NAS_ACCOUNT || '', password: env.NAS_PASSWORD || '' };
+  let url = env.NAS_API_URL || '';
+  let account = env.NAS_ACCOUNT || '';
+  let password = env.NAS_PASSWORD || '';
+  // D1 app_config fallback for NAS settings
+  if (env.DB) {
+    try {
+      const keys = ['NAS_API_URL', 'NAS_ACCOUNT', 'NAS_PASSWORD'];
+      const rows = await env.DB.prepare(
+        "SELECT key, value FROM app_config WHERE key IN ('NAS_API_URL','NAS_ACCOUNT','NAS_PASSWORD')"
+      ).all();
+      for (const r of (rows.results || [])) {
+        if (r.key === 'NAS_API_URL' && r.value) url = r.value;
+        if (r.key === 'NAS_ACCOUNT' && r.value) account = r.value;
+        if (r.key === 'NAS_PASSWORD' && r.value) password = r.value;
+      }
+    } catch (e) { /* ignore D1 errors, fall back to env */ }
+  }
+  return { url, account, password };
 }
 
 async function nasCall(env, params = {}) {
@@ -9404,7 +9857,7 @@ async function nasStatus(env) {
   const nasCfg = await getNasConfig(env);
   if (!nasCfg.url) {
     return json({ connected: false, reason: 'NAS_API_URL not configured',
-      setup: { step1: 'Worker Secret NAS_API_URL 설정', step2: 'Worker Secrets NAS_ACCOUNT, NAS_PASSWORD 설정', step3: '/api/nas/status로 연결 확인' }
+      setup: { step1: 'Worker Secret NAS_API_URL ?ㅼ젙', step2: 'Worker Secrets NAS_ACCOUNT, NAS_PASSWORD ?ㅼ젙', step3: '/api/nas/status濡??곌껐 ?뺤씤' }
     });
   }
   try {
@@ -9728,4 +10181,140 @@ async function handleWorkflowAPI(path, request, env) {
 
   return json({ error: 'Unknown workflow endpoint', path }, 404);
 }
-
+
+// ===== HeyGen Video Translate API Proxy =====
+async function handleHeyGenAPI(path, request, env) {
+  const method = request.method;
+  const db = env.DB;
+
+  async function getHeyGenKey() {
+    try {
+      const row = await db.prepare('SELECT value FROM app_config WHERE key = ?').bind('HEYGEN_API_KEY').first();
+      return row?.value || null;
+    } catch { return null; }
+  }
+
+  // 지원 언어 목록
+  if (path === '/api/heygen/languages' && method === 'GET') {
+    const apiKey = await getHeyGenKey();
+    if (!apiKey) return json({ error: 'HEYGEN_API_KEY not configured' }, 400);
+    const resp = await fetch('https://api.heygen.com/v2/video_translate/target_languages', {
+      headers: { 'X-Api-Key': apiKey }
+    });
+    const data = await resp.json();
+    return json(data, resp.status);
+  }
+
+  // 번역 작업 생성 (R2 영상 기반)
+  if ((path === '/api/heygen/translate' || path === '/api/heygen/translate-r2') && method === 'POST') {
+    const apiKey = await getHeyGenKey();
+    if (!apiKey) return json({ error: 'HEYGEN_API_KEY not configured' }, 400);
+
+    const contentType = request.headers.get('content-type') || '';
+    let videoUrl = null;
+    let outputLanguage = 'en';
+    let title = '';
+
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      const file = formData.get('video');
+      outputLanguage = formData.get('output_language') || 'en';
+      title = formData.get('title') || 'Guide Translation';
+
+      if (file && file instanceof File) {
+        const r2Key = `heygen/originals/${Date.now()}_${file.name}`;
+        await env.ASSETS.put(r2Key, file.stream(), {
+          httpMetadata: { contentType: file.type }
+        });
+        const heygenForm = new FormData();
+        heygenForm.append('video_input', file);
+        heygenForm.append('output_language', outputLanguage);
+        heygenForm.append('title', title);
+
+        const resp = await fetch('https://api.heygen.com/v2/video_translate', {
+          method: 'POST',
+          headers: { 'X-Api-Key': apiKey },
+          body: heygenForm
+        });
+        const data = await resp.json();
+        if (data.data?.video_translate_id) {
+          await db.prepare(`INSERT OR REPLACE INTO heygen_jobs (id, title, output_language, r2_original_key, status, created_at) VALUES (?, ?, ?, ?, 'pending', unixepoch())`).bind(data.data.video_translate_id, title, outputLanguage, r2Key).run().catch(()=>{});
+        }
+        return json(data, resp.status);
+      }
+    } else {
+      const body = await request.json();
+      // translate-r2: r2_key -> public URL
+      if (path === '/api/heygen/translate-r2' && body.r2_key) {
+        const baseUrl = new URL(request.url).origin;
+        videoUrl = `${baseUrl}/r2/public/${body.r2_key}?token=sj_guide_2026`;
+      } else {
+        videoUrl = body.video_url;
+      }
+      outputLanguage = body.output_language || 'en';
+      title = body.title || 'Guide Translation';
+
+      if (!videoUrl) return json({ error: 'video_url or r2_key required' }, 400);
+
+      const resp = await fetch('https://api.heygen.com/v2/video_translate', {
+        method: 'POST',
+        headers: { 'X-Api-Key': apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_url: videoUrl, output_language: outputLanguage, title: title })
+      });
+      const data = await resp.json();
+      if (data.data?.video_translate_id) {
+        await db.prepare(`INSERT OR REPLACE INTO heygen_jobs (id, title, output_language, video_url, status, created_at) VALUES (?, ?, ?, ?, 'pending', unixepoch())`).bind(data.data.video_translate_id, title, outputLanguage, videoUrl).run().catch(()=>{});
+      }
+      return json(data, resp.status);
+    }
+  }
+
+  // 번역 상태 확인
+  const statusMatch = path.match(/^\/api\/heygen\/status\/([^/]+)$/);
+  if (statusMatch && method === 'GET') {
+    const apiKey = await getHeyGenKey();
+    if (!apiKey) return json({ error: 'HEYGEN_API_KEY not configured' }, 400);
+    const translateId = statusMatch[1];
+    const resp = await fetch(`https://api.heygen.com/v2/video_translate/${translateId}`, {
+      headers: { 'X-Api-Key': apiKey }
+    });
+    const data = await resp.json();
+    if (data.data?.status === 'completed' && data.data?.url) {
+      try {
+        const videoResp = await fetch(data.data.url);
+        if (videoResp.ok) {
+          const r2Key = `heygen/translated/${translateId}.mp4`;
+          await env.ASSETS.put(r2Key, videoResp.body, { httpMetadata: { contentType: 'video/mp4' } });
+          await db.prepare(`UPDATE heygen_jobs SET status='completed', r2_translated_key=?, heygen_url=?, completed_at=unixepoch() WHERE id=?`).bind(r2Key, data.data.url, translateId).run();
+          data.data.r2_key = r2Key;
+        }
+      } catch (e) { console.error('R2 save failed:', e); }
+    } else if (data.data?.status === 'failed') {
+      await db.prepare(`UPDATE heygen_jobs SET status='failed' WHERE id=?`).bind(translateId).run().catch(()=>{});
+    }
+    return json(data, resp.status);
+  }
+
+  // 작업 목록
+  if (path === '/api/heygen/jobs' && method === 'GET') {
+    try {
+      const jobs = await db.prepare('SELECT * FROM heygen_jobs ORDER BY created_at DESC LIMIT 50').all();
+      return json({ success: true, jobs: jobs.results });
+    } catch { return json({ success: true, jobs: [] }); }
+  }
+
+  // R2 번역 영상 서빙
+  const videoMatch = path.match(/^\/api\/heygen\/video\/([^/]+)$/);
+  if (videoMatch && method === 'GET') {
+    const translateId = videoMatch[1];
+    const r2Key = `heygen/translated/${translateId}.mp4`;
+    const obj = await env.ASSETS.get(r2Key);
+    if (!obj) return json({ error: 'Video not found' }, 404);
+    return new Response(obj.body, {
+      headers: { 'Content-Type': 'video/mp4', 'Cache-Control': 'public, max-age=86400' }
+    });
+  }
+
+  return json({ error: 'Not found' }, 404);
+}
+
