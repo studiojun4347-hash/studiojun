@@ -604,6 +604,7 @@ export default {
 
       if (path === '/production' || path.startsWith('/production/')) {
         const rel = decodeURIComponent(path.replace(/^\/production\/?/, ''));
+        if (!rel) return redirectNoStore(url.origin + '/seednanceAPI');
 
         // P0-3: settings ?섏씠吏 admin/pd ?꾩슜 寃뚯씠??
         if (rel === 'settings' || rel.startsWith('settings/')) {
@@ -697,7 +698,7 @@ export default {
         if (!jwtUser) {
           return redirectNoStore(url.origin + '/login');
         }
-        if (pageKey === '/') return redirectNoStore(url.origin + '/production');
+        if (pageKey === '/') return redirectNoStore(url.origin + '/seednanceAPI');
       }
 
       const page = await env.DB.prepare(
