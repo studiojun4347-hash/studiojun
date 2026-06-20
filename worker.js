@@ -642,6 +642,24 @@ export default {
         return new Response('Production UI asset not found', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
       }
 
+      if (path === '/seednanceAPI' || path === '/seednanceapi') {
+        const jwtToken = getJwtFromCookie(request);
+        if (!jwtToken) return redirectNoStore(url.origin + '/login');
+        const payload = await verifyJWT(jwtToken, env.JWT_SECRET);
+        if (!payload) return redirectNoStore(url.origin + '/login');
+
+        const obj = await env.ASSETS.get('production-ui/seednanceAPI.html');
+        if (obj) {
+          const headers = new Headers();
+          obj.writeHttpMetadata(headers);
+          if (!headers.get('Content-Type')) headers.set('Content-Type', 'text/html; charset=utf-8');
+          headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+          headers.set('Vary', 'Accept-Encoding');
+          return new Response(obj.body, { headers });
+        }
+        return Response.redirect(url.origin + '/production/higgsfield', 302);
+      }
+
       // [v5.14.27] /app/* sub-paths ??/production/* redirect (Next.js basePath migration)
       if (path.startsWith('/app/') && path !== '/app') {
         return Response.redirect(url.origin + path.replace('/app/', '/production/'), 302);
