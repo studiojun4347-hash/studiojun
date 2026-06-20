@@ -653,12 +653,13 @@ export default {
         '/animation': '/animation', '/render': '/render', '/fx': '/fx',
         '/signup': '/signup', '/login': '/login',
         '/reviews': '/reviews', '/schedule': '/schedule',
+        '/seedance': '/seedance',
       };
       // [v5.14.25] ?덇굅???섏씠吏 ??production UI 由щ떎?대젆??
       const LEGACY_REDIRECTS = {
         '/legacy': '/production', '/imagegen': '/production',
         '/higgsfield': '/production/higgsfield',
-        '/seedance': '/production/higgsfield', '/seedance-auto': '/production/higgsfield',
+        '/seedance-auto': '/production/higgsfield',
         '/board': '/production/tasks', '/tbo': '/production',
         '/shotgrid': '/production/shots', '/shotgrid-claude': '/production/shots', '/shots': '/production/shots'
       };
