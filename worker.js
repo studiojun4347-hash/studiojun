@@ -2198,6 +2198,8 @@ async function handleAPI(path, req, env) {
 
   // Auth
   if (path === '/api/auth/login' && method === 'POST') return login(req, env);
+  if (path === '/api/auth/google/start' && method === 'GET') return googleOAuthStart(req, env);
+  if (path === '/api/auth/google/callback' && method === 'GET') return googleOAuthCallback(req, env);
   if (path === '/api/auth/register' && method === 'POST') return register(req, env);
   if (path === '/api/auth/me' && method === 'GET') return getMe(req, env);
   if (path === '/api/auth/logout' && method === 'POST') return logout(req, env);
@@ -2766,6 +2768,126 @@ async function login(req, env) {
 
   const token = await createJWT({ id: member.id, role: member.role, team: member.team }, env.JWT_SECRET);
   return jsonWithCookie({ token, user: { id: member.id, name: member.name, role: member.role, team: member.team, initials: member.initials } }, token);
+}
+
+function googleOAuthRedirectUri(req) {
+  const url = new URL(req.url);
+  return `${url.origin}/api/auth/google/callback`;
+}
+
+async function signGoogleOAuthState(payload, secret) {
+  const body = base64UrlEncodeJson(payload);
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
+  return `${body}.${base64UrlEncodeBytes(new Uint8Array(sig))}`;
+}
+
+async function verifyGoogleOAuthState(state, secret) {
+  const [body, sig] = String(state || '').split('.');
+  if (!body || !sig) return null;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+  const ok = await crypto.subtle.verify('HMAC', key, Uint8Array.from(base64UrlDecode(sig), c => c.charCodeAt(0)), new TextEncoder().encode(body));
+  if (!ok) return null;
+  const payload = JSON.parse(base64UrlDecodeUtf8(body));
+  if (!payload.ts || Date.now() - payload.ts > 10 * 60 * 1000) return null;
+  return payload;
+}
+
+function cleanNextPath(value) {
+  const raw = String(value || '/production');
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/production';
+  if (/[\r\n]/.test(raw)) return '/production';
+  return raw.slice(0, 300);
+}
+
+async function googleOAuthStart(req, env) {
+  const clientId = env.GOOGLE_OAUTH_CLIENT_ID || env.GOOGLE_CLIENT_ID;
+  if (!clientId || !env.JWT_SECRET) {
+    return redirectNoStore('/login?google_error=not_configured');
+  }
+  const url = new URL(req.url);
+  const state = await signGoogleOAuthState({
+    ts: Date.now(),
+    next: cleanNextPath(url.searchParams.get('next')),
+    nonce: crypto.randomUUID(),
+  }, env.JWT_SECRET);
+  const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  authUrl.searchParams.set('client_id', clientId);
+  authUrl.searchParams.set('redirect_uri', googleOAuthRedirectUri(req));
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('scope', 'openid email profile');
+  authUrl.searchParams.set('state', state);
+  authUrl.searchParams.set('prompt', 'select_account');
+  return redirectNoStore(authUrl.toString());
+}
+
+async function googleOAuthCallback(req, env) {
+  const clientId = env.GOOGLE_OAUTH_CLIENT_ID || env.GOOGLE_CLIENT_ID;
+  const clientSecret = env.GOOGLE_OAUTH_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET;
+  const url = new URL(req.url);
+  const code = url.searchParams.get('code');
+  const state = await verifyGoogleOAuthState(url.searchParams.get('state'), env.JWT_SECRET);
+  if (!clientId || !clientSecret || !code || !state) {
+    return redirectNoStore('/login?google_error=invalid_google_login');
+  }
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: googleOAuthRedirectUri(req),
+      grant_type: 'authorization_code',
+    }).toString(),
+  });
+  const tokenData = await tokenRes.json().catch(() => ({}));
+  if (!tokenRes.ok || !tokenData.access_token) {
+    return redirectNoStore('/login?google_error=token_exchange_failed');
+  }
+
+  const userRes = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+  });
+  const profile = await userRes.json().catch(() => ({}));
+  const email = String(profile.email || '').trim().toLowerCase();
+  if (!userRes.ok || !email || profile.email_verified === false) {
+    return redirectNoStore('/login?google_error=email_not_verified');
+  }
+
+  let member = await env.DB.prepare('SELECT * FROM members WHERE lower(email) = ?').bind(email).first();
+  if (!member) {
+    const autoProvision = String(env.GOOGLE_AUTO_PROVISION || '').toLowerCase() === 'true';
+    const allowedDomains = String(env.GOOGLE_ALLOWED_DOMAINS || '')
+      .split(',')
+      .map(v => v.trim().toLowerCase())
+      .filter(Boolean);
+    const domain = email.split('@')[1] || '';
+    const allowed = allowedDomains.length === 0 || allowedDomains.includes(domain);
+    if (!autoProvision || !allowed) {
+      return redirectNoStore('/login?google_error=not_invited');
+    }
+    const name = String(profile.name || email.split('@')[0]).slice(0, 80);
+    const id = 'MEM_GOOGLE_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+    const role = env.GOOGLE_DEFAULT_ROLE || 'client';
+    const team = env.GOOGLE_DEFAULT_TEAM || 'client';
+    const initials = name.slice(0, 2).toUpperCase();
+    await env.DB.prepare(
+      'INSERT INTO members (id, name, email, role, team, initials) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(id, name, email, role, team, initials).run();
+    member = { id, name, email, role, team, initials };
+  }
+
+  const token = await createJWT({ id: member.id, role: member.role, team: member.team }, env.JWT_SECRET);
+  const headers = new Headers({
+    Location: cleanNextPath(state.next) || '/production',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+    Pragma: 'no-cache',
+    Expires: '0',
+  });
+  headers.append('Set-Cookie', `sj_jwt=${token}; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax; Secure; HttpOnly`);
+  return new Response(null, { status: 302, headers });
 }
 
 async function register(req, env) {
