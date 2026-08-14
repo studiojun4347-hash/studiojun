@@ -1,0 +1,24 @@
+[Unit]
+Description=Hermes WORLDHARU Google Search Console sync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=hermes-affiliate
+Group=hermes-affiliate
+WorkingDirectory=/opt/hermes-affiliate-engine
+EnvironmentFile=/etc/hermes-affiliate-engine.env
+EnvironmentFile=-/var/lib/hermes-affiliate-engine/gsc-credentials.env
+Environment=PUBLIC_BASE_URL=https://worldharu.com
+Environment=GSC_SITE_URL=https://worldharu.com/
+Environment=GSC_STATE_PATH=/var/lib/hermes-affiliate-engine/worldharu-gsc-status.json
+Environment=GSC_PUBLIC_CONTENT_PREFIXES=/culture,/en/culture,/about,/en/about,/contact,/en/contact,/editorial-policy,/en/editorial-policy
+ExecStart=/usr/bin/python3 /opt/hermes-affiliate-engine/gsc_sync.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hermes-affiliate-engine
+UMask=0027
+TimeoutStartSec=2min
