@@ -1,0 +1,20 @@
+[Unit]
+Description=Hermes Google Search Console sitemap and metrics sync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=hermes-affiliate
+Group=hermes-affiliate
+WorkingDirectory=/opt/hermes-affiliate-engine
+EnvironmentFile=/etc/hermes-affiliate-engine.env
+EnvironmentFile=-/var/lib/hermes-affiliate-engine/gsc-credentials.env
+ExecStart=/usr/bin/python3 /opt/hermes-affiliate-engine/gsc_sync.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hermes-affiliate-engine
+UMask=0027
+TimeoutStartSec=2min

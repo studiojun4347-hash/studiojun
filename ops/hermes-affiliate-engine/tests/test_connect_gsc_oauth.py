@@ -82,6 +82,19 @@ class ConnectGscOauthTests(unittest.TestCase):
             if os.name == "posix":
                 self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o640)
 
+    def test_install_creates_dedicated_credentials_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "state" / "gsc-credentials.env"
+            install_gsc_credentials(path, {
+                "client_id": "new-client", "client_secret": "new-secret",
+            }, "new-refresh")
+            self.assertTrue(path.is_file())
+            if os.name == "posix":
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o640)
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("GSC_CLIENT_ID=new-client", text)
+            self.assertIn("GSC_REFRESH_TOKEN=new-refresh", text)
+
     def test_install_rejects_newlines_in_secret_values(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "engine.env"

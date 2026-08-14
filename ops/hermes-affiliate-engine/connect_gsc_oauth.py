@@ -23,7 +23,7 @@ AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 GSC_SCOPE = "https://www.googleapis.com/auth/webmasters"
 DEFAULT_CLIENT_PATH = Path("/etc/hermes-affiliate-youtube-oauth.json")
-DEFAULT_ENV_PATH = Path("/etc/hermes-affiliate-engine.env")
+DEFAULT_ENV_PATH = Path("/var/lib/hermes-affiliate-engine/gsc-credentials.env")
 DEFAULT_STATUS_PATH = Path("/var/lib/hermes-affiliate-engine/gsc-oauth-request.json")
 
 
@@ -102,15 +102,16 @@ def exchange_code(client: dict[str, str], code: str, redirect_uri: str,
 
 def install_gsc_credentials(path: Path, client: dict[str, str],
                             refresh_token: str) -> None:
-    current_stat = path.lstat()
-    if not stat.S_ISREG(current_stat.st_mode):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    current_stat = path.lstat() if path.exists() else None
+    if current_stat is not None and not stat.S_ISREG(current_stat.st_mode):
         raise ValueError("environment path must be a regular file")
     values = {
         "GSC_CLIENT_ID": _clean_secret(client["client_id"], "client_id"),
         "GSC_CLIENT_SECRET": _clean_secret(client["client_secret"], "client_secret"),
         "GSC_REFRESH_TOKEN": _clean_secret(refresh_token, "refresh_token"),
     }
-    existing = path.read_text(encoding="utf-8").splitlines()
+    existing = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
     kept = [
         line for line in existing
         if not any(line.startswith(f"{key}=") for key in values)
@@ -122,8 +123,8 @@ def install_gsc_credentials(path: Path, client: dict[str, str],
             handle.write("\n".join(rendered).rstrip() + "\n")
             handle.flush()
             os.fsync(handle.fileno())
-        os.chmod(temporary, stat.S_IMODE(current_stat.st_mode))
-        if hasattr(os, "chown"):
+        os.chmod(temporary, stat.S_IMODE(current_stat.st_mode) if current_stat else 0o640)
+        if current_stat is not None and hasattr(os, "chown"):
             os.chown(temporary, current_stat.st_uid, current_stat.st_gid)
         os.replace(temporary, path)
     finally:

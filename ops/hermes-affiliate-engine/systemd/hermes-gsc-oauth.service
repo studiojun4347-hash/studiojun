@@ -1,0 +1,27 @@
+[Unit]
+Description=Hermes one-time Google Search Console OAuth callback
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=hermes-affiliate
+WorkingDirectory=/opt/hermes-affiliate-engine
+Environment=GSC_OAUTH_PORT=8765
+Environment=GSC_OAUTH_ENV_PATH=/var/lib/hermes-affiliate-engine/gsc-credentials.env
+ExecStart=/usr/bin/python3 /opt/hermes-affiliate-engine/connect_gsc_oauth.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6
+ReadOnlyPaths=/etc/hermes-affiliate-youtube-oauth.json
+ReadWritePaths=/var/lib/hermes-affiliate-engine
+UMask=0027
+TimeoutStartSec=12min
