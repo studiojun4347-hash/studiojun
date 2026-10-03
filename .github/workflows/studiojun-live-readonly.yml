@@ -1,0 +1,192 @@
+name: STUDIOJUN existing-auth public-safe read-only probe
+
+on:
+  push:
+    branches: [codex/live-probe-20261003]
+    paths: [.github/workflows/studiojun-live-readonly.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studiojun-live-readonly-probe
+  cancel-in-progress: false
+
+jobs:
+  live_readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Inspect current live Worker with existing CI credential
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          PUBLIC_HASH_ONLY: "1"
+        run: |
+          python3 - <<'PY'
+          """Existing CI credential only. No deploy, secret values, source export or DB writes."""
+          import email.policy
+          from email.parser import BytesParser
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import urllib.error
+          import urllib.request
+          
+          ACCOUNT = '11672bfed94bba41cc2b50f8d8b62e10'
+          DATABASE = 'ad5676f4-c5a6-48c6-8263-f988fbc68330'
+          WORKER = 'studiojun'
+          API = 'https://api.cloudflare.com/client/v4/accounts/' + ACCOUNT
+          SCRIPT = '/workers/scripts/' + WORKER
+          
+          
+          def digest(data):
+              return hashlib.sha256(data).hexdigest()
+          
+          
+          def canonical(value):
+              return json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
+          
+          
+          def module_summary(content_type, body):
+              if content_type.startswith('multipart/'):
+                  message = BytesParser(policy=email.policy.default).parsebytes(
+                      b'Content-Type: ' + content_type.encode() + b'\r\nMIME-Version: 1.0\r\n\r\n' + body)
+                  modules = {part.get_filename() or part.get_param('name', header='Content-Disposition'): part.get_payload(decode=True)
+                             for part in message.iter_parts()}
+                  modules = {name: data for name, data in modules.items() if name and name != 'metadata' and data is not None}
+              else:
+                  modules = {'worker.js': body}
+              rows = [{'name': name, 'bytes': len(data), 'sha256': digest(data)} for name, data in sorted(modules.items())]
+              main = modules.get('worker.js') or next(iter(modules.values()), b'')
+              text = main.decode('utf-8', errors='replace')
+              version = re.search(r'\bWORKER_VERSION\s*=\s*[\'"]([A-Za-z0-9_.-]+)[\'"]', text)
+              return {'module_hashes': rows, 'module_set_sha256': digest(canonical(rows)),
+                      'main_sha256': digest(main), 'declared_version': version.group(1) if version else None,
+                      'existing_mcp_marker': '/mcp' in text or '__SJ_MCP' in text or 'handleMcp' in text,
+                      'existing_higgsfield_webhook_marker': 'handleHiggsfieldWebhook' in text,
+                      'source_exported': False}
+          
+          
+          def settings_summary(settings):
+              bindings = settings.get('bindings', [])
+              db = next((item for item in bindings if item.get('name') == 'DB'), {})
+              r2 = next((item for item in bindings if item.get('name') == 'ASSETS'), {})
+              return {'settings_sha256': digest(canonical(settings)),
+                      'binding_inventory': sorted([{'name': item.get('name'), 'type': item.get('type')} for item in bindings], key=lambda item: str(item['name'])),
+                      'database_binding_matches': db.get('type') == 'd1' and db.get('id') == DATABASE,
+                      'r2_binding_matches': r2.get('type') == 'r2_bucket' and r2.get('bucket_name') == 'studiojun-assets',
+                      'compatibility_date': settings.get('compatibility_date'),
+                      'configuration_field_inventory': sorted(settings.keys()),
+                      'setting_values_exported': False}
+          
+          
+          def deployment_summary(result):
+              items = result.get('deployments', []) if isinstance(result, dict) else result
+              if not isinstance(items, list) or not items:
+                  return {'rollback_verified': False, 'reason': 'no-deployments'}
+              items = sorted(items, key=lambda item: str(item.get('created_on', item.get('created_at', ''))), reverse=True)
+              rows = [{'id': item.get('id'), 'created_on': item.get('created_on', item.get('created_at')),
+                       'versions': [{'version_id': version.get('version_id'), 'percentage': version.get('percentage')} for version in item.get('versions', [])]}
+                      for item in items[:3]]
+              versions = rows[0]['versions']
+              single = len(versions) == 1 and versions[0].get('percentage') == 100 and bool(versions[0].get('version_id'))
+              return {'latest_deployments': rows, 'rollback_verified': single,
+                      'rollback_version_id': versions[0]['version_id'] if single else None}
+          
+          
+          class Reader:
+              def __init__(self, token):
+                  self.token = token
+          
+              def request(self, endpoint, sql=None, raw=False):
+                  # No arbitrary methods, URLs, SQL or environment endpoints are accepted.
+                  allowed = [SCRIPT, SCRIPT + '/settings', SCRIPT + '/deployments', SCRIPT + '/schedules', '/d1/database/' + DATABASE]
+                  if sql is not None:
+                      assert endpoint == '/d1/database/' + DATABASE + '/query'
+                      assert sql == "SELECT name,type,sql FROM sqlite_master WHERE type IN ('table','index','trigger') ORDER BY type,name"
+                  else:
+                      assert endpoint in allowed
+                  body = json.dumps({'sql': sql}).encode() if sql is not None else None
+                  request = urllib.request.Request(API + endpoint, data=body, method='POST' if sql is not None else 'GET',
+                                                   headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'})
+                  try:
+                      with urllib.request.urlopen(request, timeout=30) as response:
+                          data = response.read(20 * 1024 * 1024 + 1)
+                          if len(data) > 20 * 1024 * 1024:
+                              return {'ok': False, 'reason': 'response-size-limit'}
+                          if raw:
+                              return {'ok': True, 'summary': module_summary(response.headers.get('Content-Type', ''), data)}
+                          value = json.loads(data)
+                          return {'ok': value.get('success') is True, 'result': value.get('result'),
+                                  'error_codes': [item.get('code') for item in value.get('errors', [])]}
+                  except urllib.error.HTTPError as error:
+                      try:
+                          codes = [item.get('code') for item in json.load(error).get('errors', [])]
+                      except (ValueError, AttributeError):
+                          codes = []
+                      return {'ok': False, 'http_status': error.code, 'error_codes': codes}
+                  except Exception as error:
+                      return {'ok': False, 'reason': type(error).__name__}
+          
+          
+          def run(token):
+              report = {'account_id': ACCOUNT, 'worker': WORKER, 'database_id': DATABASE,
+                        'credential_present': bool(token), 'production_mutations': 0, 'new_grants': 0,
+                        'private_source_or_values_exported': False, 'paid_calls': 0}
+              if not token:
+                  report['blocker'] = 'existing-CF_API_TOKEN-secret-unavailable'
+                  return report
+              reader = Reader(token)
+              settings = reader.request(SCRIPT + '/settings')
+              if not settings['ok']:
+                  report['settings'] = settings
+                  report['blocker'] = 'existing-CI-credential-cannot-read-current-worker-settings'
+                  return report
+              report['settings'] = {'ok': True, **settings_summary(settings['result'])}
+              report['source'] = reader.request(SCRIPT, raw=True)
+              deployments = reader.request(SCRIPT + '/deployments')
+              report['deployments'] = {'ok': True, **deployment_summary(deployments['result'])} if deployments['ok'] else deployments
+              schedules = reader.request(SCRIPT + '/schedules')
+              report['schedules'] = {'ok': True, 'snapshot_sha256': digest(canonical(schedules['result']))} if schedules['ok'] else schedules
+              db = reader.request('/d1/database/' + DATABASE)
+              report['database'] = {'ok': True, 'name': db['result'].get('name'), 'uuid': db['result'].get('uuid')} if db['ok'] else db
+              schema = reader.request('/d1/database/' + DATABASE + '/query',
+                                      sql="SELECT name,type,sql FROM sqlite_master WHERE type IN ('table','index','trigger') ORDER BY type,name")
+              if schema['ok']:
+                  result = schema['result']
+                  rows = result[0].get('results', []) if isinstance(result, list) and result else []
+                  report['schema'] = {'ok': True, 'schema_sha256': digest(canonical(rows)),
+                                      'episode_tables_present': [row['name'] for row in rows if row['name'].startswith(('sj_ep_', 'sj_mp4_'))],
+                                      'native_tables_present': [row['name'] for row in rows if row['name'] in ['sb_episodes', 'sb_cuts', 'sb_versions', 'assets']],
+                                      'table_definitions_exported': False, 'row_data_requested': False}
+              else:
+                  report['schema'] = schema
+              report['ready_for_release_comparison'] = all(report.get(name, {}).get('ok') for name in ['source', 'deployments', 'schedules', 'database', 'schema']) and report['deployments'].get('rollback_verified') and report['settings']['database_binding_matches'] and report['settings']['r2_binding_matches']
+              return report
+          
+          
+          if __name__ == '__main__':
+              report = run(os.environ.get('CF_API_TOKEN', '').strip())
+              if os.environ.get('PUBLIC_HASH_ONLY') == '1':
+                  report.get('settings', {}).pop('binding_inventory', None)
+                  report.get('settings', {}).pop('configuration_field_inventory', None)
+                  summary = report.get('source', {}).get('summary', {})
+                  summary['module_count'] = len(summary.get('module_hashes', []))
+                  summary.pop('module_hashes', None)
+                  report.get('schema', {}).pop('episode_tables_present', None)
+                  report.get('schema', {}).pop('native_tables_present', None)
+              Path('studiojun-live-readonly.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+              print(json.dumps(report))
+              raise SystemExit(0 if report.get('ready_for_release_comparison') else 1)
+          PY
+      - name: Upload sanitized hashes and status only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studiojun-live-readonly-${{ github.run_id }}
+          path: studiojun-live-readonly.json
+          retention-days: 7
+          if-no-files-found: error
+
